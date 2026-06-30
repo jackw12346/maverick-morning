@@ -11,7 +11,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { HudCard } from "@/components/hud/hud-card";
