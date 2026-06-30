@@ -711,11 +711,11 @@ function ShortcutGuide({ url, token }: { url: string; token: string }) {
                   </div>
 
                   <p className="mt-2 text-[11px] text-muted-foreground">
-                    The JSON below is what your fields equate to — useful as a sanity check, not something to paste anywhere.
+                    That's it — don't paste any JSON anywhere. The fields above <em>are</em> the body; Shortcuts assembles the JSON for you when the request runs.
                   </p>
                 </div>
-                <CopyRow label="Reference JSON" value={jsonBody} />
               </Step>
+
 
 
 
