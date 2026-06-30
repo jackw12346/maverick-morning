@@ -142,7 +142,7 @@ function IntegrationsPage() {
         ) : webhooks.data && webhooks.data.length > 0 ? (
           <div className="space-y-2">
             {webhooks.data.map((w) => (
-              <WebhookRow key={w.id} webhook={w} />
+              <WebhookRow key={w.id} webhook={w as Webhook} />
             ))}
           </div>
         ) : (
