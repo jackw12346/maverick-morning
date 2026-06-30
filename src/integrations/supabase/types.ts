@@ -43,6 +43,7 @@ export type Database = {
       }
       briefing_settings: {
         Row: {
+          custom_instructions: string
           include_batteries: boolean
           include_calendar: boolean
           include_roca_news: boolean
@@ -54,6 +55,7 @@ export type Database = {
           voice: string
         }
         Insert: {
+          custom_instructions?: string
           include_batteries?: boolean
           include_calendar?: boolean
           include_roca_news?: boolean
@@ -65,6 +67,7 @@ export type Database = {
           voice?: string
         }
         Update: {
+          custom_instructions?: string
           include_batteries?: boolean
           include_calendar?: boolean
           include_roca_news?: boolean
