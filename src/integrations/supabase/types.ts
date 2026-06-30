@@ -74,6 +74,33 @@ export type Database = {
         }
         Relationships: []
       }
+      device_batteries: {
+        Row: {
+          device_name: string
+          id: string
+          is_charging: boolean | null
+          level: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          device_name: string
+          id?: string
+          is_charging?: boolean | null
+          level: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          device_name?: string
+          id?: string
+          is_charging?: boolean | null
+          level?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       integration_tokens: {
         Row: {
           access_token: string | null
@@ -82,6 +109,7 @@ export type Database = {
           metadata: Json
           provider: string
           refresh_token: string | null
+          scope: string | null
           status: string
           updated_at: string
           user_id: string
@@ -93,6 +121,7 @@ export type Database = {
           metadata?: Json
           provider: string
           refresh_token?: string | null
+          scope?: string | null
           status?: string
           updated_at?: string
           user_id: string
@@ -104,8 +133,36 @@ export type Database = {
           metadata?: Json
           provider?: string
           refresh_token?: string | null
+          scope?: string | null
           status?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      oauth_states: {
+        Row: {
+          created_at: string
+          expires_at: string
+          provider: string
+          redirect_to: string | null
+          state: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          provider: string
+          redirect_to?: string | null
+          state: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          provider?: string
+          redirect_to?: string | null
+          state?: string
           user_id?: string
         }
         Relationships: []
@@ -115,6 +172,7 @@ export type Database = {
           created_at: string
           display_name: string | null
           id: string
+          ingest_token: string
           timezone: string
           updated_at: string
           wake_time: string
@@ -123,6 +181,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id: string
+          ingest_token?: string
           timezone?: string
           updated_at?: string
           wake_time?: string
@@ -131,6 +190,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          ingest_token?: string
           timezone?: string
           updated_at?: string
           wake_time?: string

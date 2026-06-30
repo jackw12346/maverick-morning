@@ -115,6 +115,79 @@ export const setIntegrationStatus = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// Generate OAuth start URL for a provider. Client navigates to the returned URL.
+export const startOAuth = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        provider: z.enum(["google_calendar", "whoop"]),
+        origin: z.string().url(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { createAuthUrl } = await import("@/lib/oauth.server");
+    try {
+      const url = await createAuthUrl({
+        provider: data.provider,
+        userId: context.userId,
+        origin: data.origin,
+      });
+      return { ok: true as const, url };
+    } catch (e) {
+      return {
+        ok: false as const,
+        error: e instanceof Error ? e.message : "Failed to start OAuth",
+      };
+    }
+  });
+
+export const disconnectIntegration = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ provider: z.enum(["google_calendar", "whoop"]) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { error } = await supabase
+      .from("integration_tokens")
+      .delete()
+      .eq("user_id", userId)
+      .eq("provider", data.provider);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+// Returns the user's ingest token for the batteries POST endpoint.
+export const getIngestToken = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("ingest_token")
+      .eq("id", userId)
+      .maybeSingle();
+    if (error) throw error;
+    return { token: data?.ingest_token ?? null };
+  });
+
+// Latest battery readings for the dashboard.
+export const listBatteries = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const { data, error } = await supabase
+      .from("device_batteries")
+      .select("device_name,level,is_charging,updated_at")
+      .eq("user_id", userId)
+      .order("device_name");
+    if (error) throw error;
+    return data ?? [];
+  });
+
+
 // ---------- Webhooks ----------
 
 export const listWebhooks = createServerFn({ method: "GET" })
@@ -267,41 +340,8 @@ export const getLatestLog = createServerFn({ method: "GET" })
 
 type Section = { id: string; title: string; content: string };
 
-function collectCalendar(): Section | null {
-  // TODO: real Google Calendar fetch once OAuth lands.
-  return {
-    id: "calendar",
-    title: "Calendar",
-    content:
-      "You have three meetings today. 09:30 product sync, 13:00 1:1 with Alex, 16:00 deep-work block.",
-  };
-}
-function collectWhoop(): Section | null {
-  // TODO: real Whoop API.
-  return {
-    id: "whoop",
-    title: "Recovery",
-    content: "Recovery 72%. HRV trending up. Strain target 14.2.",
-  };
-}
-function collectBatteries(): Section | null {
-  return {
-    id: "batteries",
-    title: "Devices",
-    content: "AirPods at 38%, phone at 84%, watch at 91%.",
-  };
-}
-function collectRocaNews(): Section | null {
-  return {
-    id: "news",
-    title: "Roca News",
-    content:
-      "Markets opened flat. Three headlines worth your attention this morning, none requiring action.",
-  };
-}
-
 function fallbackBriefing(name: string, sections: Section[]): string {
-  const greeting = `Good morning, ${name}. Systems are nominal.`;
+  const greeting = `Good morning, ${name}.`;
   const body = sections.map((s) => `${s.title}. ${s.content}`).join(" ");
   return `${greeting} ${body} That's the briefing.`;
 }
@@ -312,7 +352,7 @@ async function generateText(
   sections: Section[],
 ): Promise<{ text: string; model: string }> {
   const prompt = [
-    "You are Jarvis, a personal morning briefing assistant.",
+    "You are Maverick, a personal morning briefing assistant.",
     `Subject name: ${name}.`,
     "Compose a concise, calm morning briefing in 5-8 sentences using ONLY the data below.",
     "Open with a short greeting. Mention each section naturally. End with a single confident closer.",
@@ -387,25 +427,20 @@ export const generateMorningBriefing = createServerFn({ method: "POST" })
         .eq("enabled", true),
     ]);
 
-    const name = profile?.display_name?.trim() || "Operator";
+    const name = profile?.display_name?.trim() || "there";
 
-    const sections: Section[] = [];
-    if (settings?.include_calendar) {
-      const s = collectCalendar();
-      if (s) sections.push(s);
-    }
-    if (settings?.include_whoop) {
-      const s = collectWhoop();
-      if (s) sections.push(s);
-    }
-    if (settings?.include_batteries) {
-      const s = collectBatteries();
-      if (s) sections.push(s);
-    }
-    if (settings?.include_roca_news) {
-      const s = collectRocaNews();
-      if (s) sections.push(s);
-    }
+    const { collectCalendar, collectWhoop, collectBatteries, collectRocaNews } =
+      await import("@/lib/data-sources.server");
+
+    const collectors: Promise<Section | null>[] = [];
+    if (settings?.include_calendar) collectors.push(collectCalendar(userId));
+    if (settings?.include_whoop) collectors.push(collectWhoop(userId));
+    if (settings?.include_batteries) collectors.push(collectBatteries(userId));
+    if (settings?.include_roca_news) collectors.push(collectRocaNews());
+    const sections = (await Promise.all(collectors)).filter(
+      (s): s is Section => s !== null,
+    );
+
 
     const apiKey = process.env.LOVABLE_API_KEY;
     let text: string;
