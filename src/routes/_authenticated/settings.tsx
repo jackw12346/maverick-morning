@@ -6,9 +6,12 @@ import {
   CalendarDays,
   HeartPulse,
   Newspaper,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { HudCard } from "@/components/hud/hud-card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -67,6 +70,7 @@ function SettingsPage() {
     include_batteries: boolean;
     include_roca_news: boolean;
     news_topics: string;
+    custom_instructions: string;
     text_to_speech_enabled: boolean;
     voice: (typeof voices)[number];
   }>;
@@ -120,6 +124,19 @@ function SettingsPage() {
             })}
             {data?.include_roca_news ? <NewsTopicsInput initial={data.news_topics ?? ""} onSave={(v) => mut.mutate({ news_topics: v })} /> : null}
           </div>
+        )}
+      </HudCard>
+
+      <HudCard
+        eyebrow="AI refinement"
+        title="Custom instructions"
+        actions={<Sparkles className="h-4 w-4 text-hud" />}
+      >
+        {data && (
+          <CustomInstructionsInput
+            initial={data.custom_instructions ?? ""}
+            onSave={(v) => mut.mutate({ custom_instructions: v })}
+          />
         )}
       </HudCard>
 
@@ -187,6 +204,50 @@ function NewsTopicsInput({ initial, onSave }: { initial: string; onSave: (v: str
         onBlur={() => value !== initial && onSave(value)}
         placeholder="AI, markets, NBA, my city…"
       />
+    </div>
+  );
+}
+
+function CustomInstructionsInput({
+  initial,
+  onSave,
+}: {
+  initial: string;
+  onSave: (v: string) => void;
+}) {
+  const [value, setValue] = useState(initial);
+  useEffect(() => setValue(initial), [initial]);
+  const dirty = value !== initial;
+  return (
+    <div className="space-y-3 rounded-md border border-border/60 bg-background/40 p-3">
+      <div>
+        <Label className="text-sm font-medium">Refine how Maverick speaks to you</Label>
+        <div className="text-xs text-muted-foreground mt-1">
+          Free-form instructions appended to every briefing prompt. Examples: "Keep it under 4
+          sentences", "Be sarcastic and concise", "Always end with a workout suggestion", "Skip
+          weather, lead with my first meeting".
+        </div>
+      </div>
+      <Textarea
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        rows={5}
+        maxLength={2000}
+        placeholder="Tell Maverick how you want the briefing tailored…"
+      />
+      <div className="flex items-center justify-between">
+        <span className="mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          {value.length} / 2000
+        </span>
+        <Button
+          size="sm"
+          variant={dirty ? "default" : "secondary"}
+          disabled={!dirty}
+          onClick={() => onSave(value)}
+        >
+          Save instructions
+        </Button>
+      </div>
     </div>
   );
 }

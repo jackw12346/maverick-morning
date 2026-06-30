@@ -63,6 +63,7 @@ export const updateSettings = createServerFn({ method: "POST" })
         include_batteries: z.boolean().optional(),
         include_roca_news: z.boolean().optional(),
         news_topics: z.string().max(500).optional(),
+        custom_instructions: z.string().max(2000).optional(),
         text_to_speech_enabled: z.boolean().optional(),
         voice: z.enum(["alloy", "echo", "fable", "onyx", "nova", "shimmer"]).optional(),
       })
@@ -337,6 +338,30 @@ export const getLatestLog = createServerFn({ method: "GET" })
     return { ...data, audio_url: await signAudio(supabase, data.audio_url) };
   });
 
+export const deleteLog = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    // Fetch to get audio path before deleting
+    const { data: row } = await supabase
+      .from("briefing_logs")
+      .select("audio_url")
+      .eq("id", data.id)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (row?.audio_url) {
+      await supabase.storage.from("briefings").remove([row.audio_url]).catch(() => {});
+    }
+    const { error } = await supabase
+      .from("briefing_logs")
+      .delete()
+      .eq("id", data.id)
+      .eq("user_id", userId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
 // ---------- Generate ----------
 
 type Section = { id: string; title: string; content: string };
@@ -351,6 +376,7 @@ async function generateText(
   apiKey: string,
   name: string,
   sections: Section[],
+  customInstructions: string,
 ): Promise<{ text: string; model: string }> {
   const prompt = [
     "You are Maverick, a personal morning briefing assistant.",
@@ -358,9 +384,12 @@ async function generateText(
     "Compose a concise, calm morning briefing in 5-8 sentences using ONLY the data below.",
     "Open with a short greeting. Mention each section naturally. End with a single confident closer.",
     "For the calendar: mention ALL events listed (both family and personal). If any event is tagged [FAMILY — prioritize], lead with it and frame it as the top priority, then continue with the remaining personal events in order. Do not omit personal events.",
+    customInstructions.trim()
+      ? `User refinement instructions (follow these closely, they override default tone/style when in conflict):\n${customInstructions.trim()}`
+      : "",
     "Data sections:",
     ...sections.map((s) => `- ${s.title}: ${s.content}`),
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -451,7 +480,7 @@ export const generateMorningBriefing = createServerFn({ method: "POST" })
     let modelUsed = "fallback";
     if (apiKey) {
       try {
-        const out = await generateText(apiKey, name, sections);
+        const out = await generateText(apiKey, name, sections, settings?.custom_instructions ?? "");
         text = out.text || fallbackBriefing(name, sections);
         modelUsed = out.model;
       } catch (err) {

@@ -1,0 +1,1 @@
+ALTER TABLE public.briefing_settings ADD COLUMN IF NOT EXISTS custom_instructions text NOT NULL DEFAULT '';

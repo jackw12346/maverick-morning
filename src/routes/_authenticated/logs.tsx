@@ -1,16 +1,28 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { AudioLines, Clock, FileText } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AudioLines, Clock, FileText, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { HudCard } from "@/components/hud/hud-card";
 import { BriefingAudioPlayer } from "@/components/BriefingAudioPlayer";
-import { listLogs } from "@/lib/briefing.functions";
+import { Button } from "@/components/ui/button";
+import { deleteLog, listLogs } from "@/lib/briefing.functions";
 
 export const Route = createFileRoute("/_authenticated/logs")({
   component: LogsPage,
 });
 
 function LogsPage() {
+  const qc = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["logs"], queryFn: () => listLogs() });
+  const del = useMutation({
+    mutationFn: (id: string) => deleteLog({ data: { id } }),
+    onSuccess: () => {
+      toast.success("Briefing deleted");
+      qc.invalidateQueries({ queryKey: ["logs"] });
+      qc.invalidateQueries({ queryKey: ["latest-log"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Delete failed"),
+  });
 
   return (
     <div className="space-y-6">
@@ -66,6 +78,19 @@ function LogsPage() {
                           <AudioLines className="h-3 w-3" /> tts
                         </span>
                       )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-muted-foreground hover:text-destructive"
+                        disabled={del.isPending}
+                        onClick={() => {
+                          if (confirm("Delete this briefing? This cannot be undone.")) {
+                            del.mutate(log.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </header>
                   <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
