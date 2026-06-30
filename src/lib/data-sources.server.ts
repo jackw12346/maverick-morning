@@ -88,7 +88,21 @@ export async function collectWeather(location: string): Promise<Section | null> 
   };
 }
 
-// ---------- Traffic (Google Distance Matrix; requires GOOGLE_MAPS_API_KEY) ----------
+// ---------- Traffic (OpenStreetMap / OSRM, no API key required) ----------
+// Uses Nominatim for address geocoding and OSRM for routing. Free, no key, no live traffic.
+
+async function nominatimGeocode(address: string): Promise<{ lat: number; lon: number } | null> {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`;
+  const res = await fetch(url, {
+    headers: { "User-Agent": "Maverick-Briefing/1.0" },
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!res.ok) return null;
+  const j = (await res.json()) as Array<{ lat: string; lon: string }>;
+  const r = j[0];
+  if (!r) return null;
+  return { lat: parseFloat(r.lat), lon: parseFloat(r.lon) };
+}
 
 export async function collectTraffic(origin: string, destination: string): Promise<Section | null> {
   const o = origin.trim();
@@ -100,55 +114,43 @@ export async function collectTraffic(origin: string, destination: string): Promi
       content: "Set your commute origin and destination in Configuration.",
     };
   }
-  const key = process.env.GOOGLE_MAPS_API_KEY;
-  if (!key) {
+  try {
+    const [originGeo, destGeo] = await Promise.all([
+      nominatimGeocode(o),
+      nominatimGeocode(dst),
+    ]);
+    if (!originGeo || !destGeo) {
+      return {
+        id: "traffic",
+        title: "Traffic",
+        content: `Couldn't locate one or both addresses: ${o} → ${dst}. Try a more specific address or city.`,
+      };
+    }
+    const routeUrl = `https://router.project-osrm.org/route/v1/driving/${originGeo.lon},${originGeo.lat};${destGeo.lon},${destGeo.lat}?overview=false`;
+    const res = await fetch(routeUrl, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) {
+      console.error("[traffic]", res.status, await res.text().catch(() => ""));
+      return { id: "traffic", title: "Traffic", content: "Traffic routing service unavailable." };
+    }
+    const j = (await res.json()) as {
+      code: string;
+      routes?: Array<{ distance: number; duration: number }>;
+    };
+    if (j.code !== "Ok" || !j.routes?.[0]) {
+      return { id: "traffic", title: "Traffic", content: `Couldn't route ${o} → ${dst}.` };
+    }
+    const route = j.routes[0];
+    const durationMin = Math.round(route.duration / 60);
+    const distanceMi = (route.distance / 1609.34).toFixed(1);
     return {
       id: "traffic",
       title: "Traffic",
-      content: "Traffic unavailable — Google Maps API key not configured.",
+      content: `${o} → ${dst}: about ${durationMin} min (${distanceMi} mi). This is a free route estimate; live traffic delays are not included.`,
     };
+  } catch (e) {
+    console.error("[traffic]", e);
+    return { id: "traffic", title: "Traffic", content: "Traffic lookup failed." };
   }
-  const params = new URLSearchParams({
-    origins: o,
-    destinations: dst,
-    departure_time: "now",
-    traffic_model: "best_guess",
-    units: "imperial",
-    key,
-  });
-  const res = await fetch(`https://maps.googleapis.com/maps/api/distancematrix/json?${params}`, {
-    signal: AbortSignal.timeout(8000),
-  });
-  if (!res.ok) {
-    console.error("[traffic]", res.status, await res.text().catch(() => ""));
-    return { id: "traffic", title: "Traffic", content: "Traffic feed unavailable." };
-  }
-  const j = (await res.json()) as {
-    status: string;
-    rows?: Array<{
-      elements?: Array<{
-        status: string;
-        duration?: { value: number; text: string };
-        duration_in_traffic?: { value: number; text: string };
-        distance?: { text: string };
-      }>;
-    }>;
-  };
-  const el = j.rows?.[0]?.elements?.[0];
-  if (!el || el.status !== "OK" || !el.duration) {
-    return { id: "traffic", title: "Traffic", content: `Couldn't route ${o} → ${dst}.` };
-  }
-  const base = el.duration.value;
-  const live = el.duration_in_traffic?.value ?? base;
-  const deltaMin = Math.round((live - base) / 60);
-  const condition =
-    deltaMin <= 1 ? "clear" : deltaMin <= 5 ? "light traffic" : deltaMin <= 12 ? "moderate traffic" : "heavy traffic";
-  const liveText = el.duration_in_traffic?.text ?? el.duration.text;
-  return {
-    id: "traffic",
-    title: "Traffic",
-    content: `${o} → ${dst}: ${liveText}${el.distance ? ` (${el.distance.text})` : ""}, ${condition}${deltaMin > 1 ? `, +${deltaMin} min vs typical` : ""}.`,
-  };
 }
 
 export async function collectCalendar(userId: string): Promise<Section | null> {

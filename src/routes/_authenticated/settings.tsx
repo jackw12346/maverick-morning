@@ -41,7 +41,7 @@ const toggles = [
   {
     key: "include_traffic",
     label: "Traffic",
-    desc: "Live drive time from your commute origin to destination.",
+    desc: "Free drive-time estimate from your commute origin to destination (no live traffic, no API key).",
     icon: Car,
   },
   {
