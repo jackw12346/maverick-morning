@@ -701,12 +701,13 @@ function ShortcutGuide({ url, token }: { url: string; token: string }) {
                         <span className="font-mono">devices</span>
                         <span className="ml-auto rounded bg-secondary/60 px-1 text-[10px]">type: Array</span>
                       </div>
-                      <p className="mt-1 text-muted-foreground">Tap the array row → <strong>Add new item</strong> → set the item's type to <strong>Dictionary</strong>. Inside that dictionary, add three fields the same way:</p>
+                      <p className="mt-1 text-muted-foreground">Tap the array row → <strong>Add new item</strong> → set the item's type to <strong>Dictionary</strong>. Inside that dictionary, add these three fields. Every device in the array must use the exact same keys:</p>
                       <ul className="mt-1.5 ml-2 space-y-1">
                         <li className="flex items-center gap-2"><span className="rounded bg-secondary/60 px-1 text-[10px]">Key</span><span className="font-mono">name</span> · <span className="rounded bg-secondary/60 px-1 text-[10px]">Text</span> · <span className="font-mono">iPhone</span></li>
                         <li className="flex items-center gap-2"><span className="rounded bg-secondary/60 px-1 text-[10px]">Key</span><span className="font-mono">level</span> · <span className="rounded bg-secondary/60 px-1 text-[10px]">Number</span> · tap the value, then insert the <strong>Battery Level</strong> magic variable</li>
                         <li className="flex items-center gap-2"><span className="rounded bg-secondary/60 px-1 text-[10px]">Key</span><span className="font-mono">charging</span> · <span className="rounded bg-secondary/60 px-1 text-[10px]">Boolean</span> · toggle <strong>off</strong></li>
                       </ul>
+                      <p className="mt-1 text-[11px] text-muted-foreground">To add more devices later, tap <strong>Add new item</strong> again and reuse the same <span className="font-mono">name</span>/<span className="font-mono">level</span>/<span className="font-mono">charging</span> keys.</p>
                     </div>
                   </div>
 
