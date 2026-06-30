@@ -65,7 +65,8 @@ export async function collectCalendar(userId: string): Promise<Section | null> {
 export async function collectWhoop(userId: string): Promise<Section | null> {
   const token = await getValidAccessToken({ userId, provider: "whoop" });
   if (!token) return null;
-  // Latest recovery
+
+  // Latest recovery (Whoop returns most recent first by default).
   const res = await fetch(
     "https://api.prod.whoop.com/developer/v1/recovery?limit=1",
     { headers: { Authorization: `Bearer ${token}` } },
@@ -80,6 +81,9 @@ export async function collectWhoop(userId: string): Promise<Section | null> {
   }
   const json = (await res.json()) as {
     records?: Array<{
+      created_at?: string;
+      updated_at?: string;
+      score_state?: string;
       score?: {
         recovery_score?: number;
         hrv_rmssd_milli?: number;
@@ -87,12 +91,16 @@ export async function collectWhoop(userId: string): Promise<Section | null> {
       };
     }>;
   };
-  const r = json.records?.[0]?.score;
+  const rec = json.records?.[0];
+  const r = rec?.score;
   if (!r) {
     return {
       id: "whoop",
       title: "Recovery",
-      content: "No recovery data yet for today.",
+      content:
+        rec?.score_state && rec.score_state !== "SCORED"
+          ? `Latest recovery is still ${rec.score_state.toLowerCase()} on Whoop's side.`
+          : "No recovery data yet for today.",
     };
   }
   const parts: string[] = [];
@@ -100,10 +108,20 @@ export async function collectWhoop(userId: string): Promise<Section | null> {
     parts.push(`Recovery ${Math.round(r.recovery_score)}%`);
   if (r.hrv_rmssd_milli != null) parts.push(`HRV ${Math.round(r.hrv_rmssd_milli)}ms`);
   if (r.resting_heart_rate != null) parts.push(`RHR ${r.resting_heart_rate}`);
+
+  // Flag staleness so the model can mention it instead of pretending it's today's.
+  let suffix = "";
+  const ts = rec.updated_at ?? rec.created_at;
+  if (ts) {
+    const ageHrs = (Date.now() - new Date(ts).getTime()) / 36e5;
+    if (ageHrs > 18) {
+      suffix = ` (last synced ${Math.round(ageHrs)}h ago — Whoop hasn't pushed this morning's score yet)`;
+    }
+  }
   return {
     id: "whoop",
     title: "Recovery",
-    content: parts.join(", ") + ".",
+    content: parts.join(", ") + "." + suffix,
   };
 }
 
