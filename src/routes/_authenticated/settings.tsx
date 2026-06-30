@@ -4,6 +4,8 @@ import {
   AudioLines,
   BatteryCharging,
   CalendarDays,
+  Car,
+  CloudSun,
   HeartPulse,
   Newspaper,
   Sparkles,
@@ -30,6 +32,18 @@ export const Route = createFileRoute("/_authenticated/settings")({
 });
 
 const toggles = [
+  {
+    key: "include_weather",
+    label: "Weather",
+    desc: "Today's forecast for your location.",
+    icon: CloudSun,
+  },
+  {
+    key: "include_traffic",
+    label: "Traffic",
+    desc: "Live drive time from your commute origin to destination.",
+    icon: Car,
+  },
   {
     key: "include_calendar",
     label: "Google Calendar",
