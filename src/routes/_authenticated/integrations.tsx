@@ -801,8 +801,8 @@ function ShortcutGuide({ url, token }: { url: string; token: string }) {
                   a: <>iOS 17+ runs personal automations silently, but only if <em>Ask Before Running</em> is off. Also confirm the iPhone is unlocked at the trigger time for time-based automations.</>,
                 },
                 {
-                  q: "Charging always shows false",
-                  a: <>The <em>Power State</em> output is a boolean; if you see <code>0</code>/<code>1</code> instead, wrap it in an <em>If</em> action: <code>If Power State is 1 → true, Otherwise → false</code>.</>,
+                  q: "How do I report charging = true?",
+                  a: <>Shortcuts has no “Get Power State” action. Instead, duplicate the shortcut, hard-code <code>charging</code> to <strong>true</strong> in the JSON dictionary, and trigger that copy from a <em>Charger → Is Connected</em> automation. The original (charging = false) runs from <em>Charger → Disconnected</em> and your daily time trigger.</>,
                 },
                 {
                   q: "Want to reset the token",
