@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
+import { AccountDialog } from "@/components/AccountDialog";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -86,20 +87,27 @@ function AuthenticatedLayout() {
         })}
       </nav>
 
-      <div className="mt-2 rounded-md border border-border/60 bg-background/60 p-3">
-        <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-          Account
-        </div>
-        <div className="mt-0.5 truncate text-xs">{user.email}</div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={signOut}
-          className="mt-2 h-7 w-full justify-start px-2 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <LogOut className="mr-2 h-3.5 w-3.5" /> Sign out
-        </Button>
-      </div>
+      <AccountDialog email={user.email ?? ""}>
+        <button className="mt-2 w-full rounded-md border border-border/60 bg-background/60 p-3 text-left transition hover:border-hud/40 hover:bg-background">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            Account
+          </div>
+          <div className="mt-0.5 truncate text-xs">{user.email}</div>
+          <div className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-hud" />
+            Tap to change password
+          </div>
+        </button>
+      </AccountDialog>
+
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={signOut}
+        className="mt-2 h-7 w-full justify-start px-2 text-xs text-muted-foreground hover:text-foreground"
+      >
+        <LogOut className="mr-2 h-3.5 w-3.5" /> Sign out
+      </Button>
     </>
   );
 
