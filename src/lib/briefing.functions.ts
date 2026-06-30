@@ -338,6 +338,30 @@ export const getLatestLog = createServerFn({ method: "GET" })
     return { ...data, audio_url: await signAudio(supabase, data.audio_url) };
   });
 
+export const deleteLog = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    // Fetch to get audio path before deleting
+    const { data: row } = await supabase
+      .from("briefing_logs")
+      .select("audio_url")
+      .eq("id", data.id)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (row?.audio_url) {
+      await supabase.storage.from("briefings").remove([row.audio_url]).catch(() => {});
+    }
+    const { error } = await supabase
+      .from("briefing_logs")
+      .delete()
+      .eq("id", data.id)
+      .eq("user_id", userId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
 // ---------- Generate ----------
 
 type Section = { id: string; title: string; content: string };
