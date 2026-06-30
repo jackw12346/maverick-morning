@@ -70,6 +70,7 @@ function SettingsPage() {
     include_batteries: boolean;
     include_roca_news: boolean;
     news_topics: string;
+    custom_instructions: string;
     text_to_speech_enabled: boolean;
     voice: (typeof voices)[number];
   }>;
