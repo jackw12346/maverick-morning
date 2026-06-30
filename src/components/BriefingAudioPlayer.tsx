@@ -19,6 +19,13 @@ export function BriefingAudioPlayer({ src, className }: BriefingAudioPlayerProps
   const [playing, setPlaying] = useState(false);
   const [current, setCurrent] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [rate, setRate] = useState(1);
+
+  useEffect(() => {
+    const a = audioRef.current;
+    if (a) a.playbackRate = rate;
+  }, [rate]);
+
 
   useEffect(() => {
     const a = audioRef.current;
