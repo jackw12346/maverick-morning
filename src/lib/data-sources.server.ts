@@ -66,52 +66,84 @@ export async function collectWhoop(userId: string): Promise<Section | null> {
   const token = await getValidAccessToken({ userId, provider: "whoop" });
   if (!token) return null;
 
-  // Latest recovery (Whoop v2; v1 was deprecated).
-  const res = await fetch(
-    "https://api.prod.whoop.com/developer/v2/recovery?limit=1",
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
-  if (!res.ok) {
-    console.error("[whoop]", res.status, await res.text().catch(() => ""));
+  const headers = { Authorization: `Bearer ${token}` };
+  const [recRes, sleepRes] = await Promise.all([
+    fetch("https://api.prod.whoop.com/developer/v2/recovery?limit=1", { headers }),
+    fetch("https://api.prod.whoop.com/developer/v2/activity/sleep?limit=1", { headers }),
+  ]);
+
+  if (!recRes.ok) {
+    console.error("[whoop recovery]", recRes.status, await recRes.text().catch(() => ""));
+  }
+  if (!sleepRes.ok) {
+    console.error("[whoop sleep]", sleepRes.status, await sleepRes.text().catch(() => ""));
+  }
+  if (!recRes.ok && !sleepRes.ok) {
     return {
       id: "whoop",
       title: "Recovery",
       content: "Whoop fetch failed — try reconnecting.",
     };
   }
-  const json = (await res.json()) as {
-    records?: Array<{
-      created_at?: string;
-      updated_at?: string;
-      score_state?: string;
-      score?: {
-        recovery_score?: number;
-        hrv_rmssd_milli?: number;
-        resting_heart_rate?: number;
-      };
-    }>;
-  };
-  const rec = json.records?.[0];
+
+  const recJson = recRes.ok
+    ? ((await recRes.json()) as {
+        records?: Array<{
+          created_at?: string;
+          updated_at?: string;
+          score_state?: string;
+          score?: {
+            recovery_score?: number;
+            hrv_rmssd_milli?: number;
+            resting_heart_rate?: number;
+          };
+        }>;
+      })
+    : { records: [] };
+  const sleepJson = sleepRes.ok
+    ? ((await sleepRes.json()) as {
+        records?: Array<{
+          created_at?: string;
+          updated_at?: string;
+          score_state?: string;
+          score?: {
+            sleep_performance_percentage?: number;
+            sleep_efficiency_percentage?: number;
+            sleep_consistency_percentage?: number;
+          };
+        }>;
+      })
+    : { records: [] };
+
+  const rec = recJson.records?.[0];
   const r = rec?.score;
-  if (!r) {
+  const sleep = sleepJson.records?.[0];
+  const s = sleep?.score;
+
+  const parts: string[] = [];
+  if (r?.recovery_score != null) parts.push(`Recovery ${Math.round(r.recovery_score)}%`);
+  if (s?.sleep_performance_percentage != null)
+    parts.push(`Sleep ${Math.round(s.sleep_performance_percentage)}%`);
+  if (s?.sleep_efficiency_percentage != null)
+    parts.push(`efficiency ${Math.round(s.sleep_efficiency_percentage)}%`);
+  if (r?.hrv_rmssd_milli != null) parts.push(`HRV ${Math.round(r.hrv_rmssd_milli)}ms`);
+  if (r?.resting_heart_rate != null) parts.push(`RHR ${r.resting_heart_rate}`);
+
+  if (parts.length === 0) {
+    const state = rec?.score_state ?? sleep?.score_state;
     return {
       id: "whoop",
       title: "Recovery",
       content:
-        rec?.score_state && rec.score_state !== "SCORED"
-          ? `Latest recovery is still ${rec.score_state.toLowerCase()} on Whoop's side.`
-          : "No recovery data yet for today.",
+        state && state !== "SCORED"
+          ? `Latest Whoop data is still ${state.toLowerCase()}.`
+          : "No Whoop data yet for today.",
     };
   }
-  const parts: string[] = [];
-  if (r.recovery_score != null)
-    parts.push(`Recovery ${Math.round(r.recovery_score)}%`);
-  if (r.hrv_rmssd_milli != null) parts.push(`HRV ${Math.round(r.hrv_rmssd_milli)}ms`);
-  if (r.resting_heart_rate != null) parts.push(`RHR ${r.resting_heart_rate}`);
 
   // Flag staleness so the model can mention it instead of pretending it's today's.
   let suffix = "";
-  const ts = rec.updated_at ?? rec.created_at;
+  const ts = rec?.updated_at ?? rec?.created_at ?? sleep?.updated_at ?? sleep?.created_at;
   if (ts) {
     const ageHrs = (Date.now() - new Date(ts).getTime()) / 36e5;
     if (ageHrs > 18) {
