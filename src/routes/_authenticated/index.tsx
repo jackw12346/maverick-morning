@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { AlarmClock } from "@/components/AlarmClock";
 import { BriefingAudioPlayer } from "@/components/BriefingAudioPlayer";
 import { Button } from "@/components/ui/button";
 import {
@@ -89,6 +90,8 @@ function Dashboard() {
           )}
         </Button>
       </header>
+
+      <AlarmClock />
 
       {/* Featured story */}
       <article className="overflow-hidden rounded-xl border border-border/60 bg-card">
