@@ -6,6 +6,8 @@ import { HudCard } from "@/components/hud/hud-card";
 import { BriefingAudioPlayer } from "@/components/BriefingAudioPlayer";
 import { Button } from "@/components/ui/button";
 import { deleteLog, listLogs } from "@/lib/briefing.functions";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export const Route = createFileRoute("/_authenticated/logs")({
   component: LogsPage,
@@ -93,9 +95,9 @@ function LogsPage() {
                       </Button>
                     </div>
                   </header>
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
-                    {log.briefing_text}
-                  </p>
+                  <div className="prose prose-sm prose-invert max-w-none text-foreground/90 prose-p:leading-relaxed prose-strong:text-foreground">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{log.briefing_text}</ReactMarkdown>
+                  </div>
                   {log.audio_url && (
                     <div className="mt-3">
                       <BriefingAudioPlayer src={log.audio_url} />
