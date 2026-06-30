@@ -12,7 +12,17 @@ export const Route = createFileRoute("/_authenticated/logs")({
 });
 
 function LogsPage() {
+  const qc = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["logs"], queryFn: () => listLogs() });
+  const del = useMutation({
+    mutationFn: (id: string) => deleteLog({ data: { id } }),
+    onSuccess: () => {
+      toast.success("Briefing deleted");
+      qc.invalidateQueries({ queryKey: ["logs"] });
+      qc.invalidateQueries({ queryKey: ["latest-log"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Delete failed"),
+  });
 
   return (
     <div className="space-y-6">
