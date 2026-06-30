@@ -69,15 +69,15 @@ function AuthenticatedLayout() {
                   key={item.to}
                   to={item.to}
                   className={cn(
-                    "group flex items-center gap-3 rounded-md border border-transparent px-3 py-2 text-sm transition",
+                    "group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition",
                     active
-                      ? "border-hud/40 bg-hud/10 text-hud"
+                      ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
                   )}
                 >
                   <Icon className="h-4 w-4" />
                   <span>{item.label}</span>
-                  {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-hud shadow-[0_0_8px_var(--color-hud)]" />}
+                  {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />}
                 </Link>
               );
             })}
