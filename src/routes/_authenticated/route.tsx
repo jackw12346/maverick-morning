@@ -1,10 +1,12 @@
 import { Link, Outlet, redirect, useLocation, useRouter } from "@tanstack/react-router";
 import { createFileRoute } from "@tanstack/react-router";
-import { Activity, Cable, LayoutDashboard, ListOrdered, LogOut, SlidersHorizontal } from "lucide-react";
+import { Cable, LayoutDashboard, ListOrdered, LogOut, Menu, SlidersHorizontal } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
