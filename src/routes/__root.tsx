@@ -65,9 +65,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Jarvis · Morning Briefing" },
-      { name: "description", content: "Personal AI morning briefing control center." },
-      { name: "theme-color", content: "#0a1322" },
+      { title: "Maverick · Morning Briefing" },
+      { name: "description", content: "Maverick — your personal morning briefing." },
+      { name: "theme-color", content: "#1a1a1a" },
     ],
     links: [{ rel: "stylesheet", href: appCss }],
   }),
