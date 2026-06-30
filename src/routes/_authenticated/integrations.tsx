@@ -225,7 +225,6 @@ Content-Type: application/json
             token={ingest.data?.token ?? "<your-token>"}
           />
         </div>
-        </div>
         {batteries.data && batteries.data.length > 0 && (
           <div className="mt-4 space-y-1.5">
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
