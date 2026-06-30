@@ -478,6 +478,8 @@ function NewWebhookButton({ onCreated }: { onCreated: () => void }) {
 
 function ShortcutGuide({ url, token }: { url: string; token: string }) {
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<"build" | "automate" | "extend" | "troubleshoot">("build");
+
   const jsonBody = `{
   "token": "${token}",
   "devices": [
@@ -485,55 +487,103 @@ function ShortcutGuide({ url, token }: { url: string; token: string }) {
   ]
 }`;
 
-  const steps: Array<{ title: string; body: React.ReactNode; copy?: { label: string; value: string } }> = [
-    {
-      title: "Open the Shortcuts app on iPhone",
-      body: <>Tap the <strong>+</strong> in the top-right to create a new shortcut. Name it <em>“Maverick Battery Sync”</em>.</>,
-    },
-    {
-      title: "Add a “Get Battery Level” action",
-      body: <>Search for <code className="rounded bg-secondary/60 px-1">Battery Level</code> and add it. This returns a 0–100 number.</>,
-    },
-    {
-      title: "Add a “Get Device Details” → Power State (optional)",
-      body: <>Search <code className="rounded bg-secondary/60 px-1">Get Device Details</code>, set it to <em>Power State</em>. Returns <code>true</code>/<code>false</code> for charging.</>,
-    },
-    {
-      title: "Add a “Get Contents of URL” action",
-      body: (
-        <>
-          Tap <strong>Show More</strong> on the action and set:
-          <ul className="mt-1 list-disc pl-5 space-y-0.5">
-            <li><strong>Method:</strong> POST</li>
-            <li><strong>Headers:</strong> <code>Content-Type</code> = <code>application/json</code></li>
-            <li><strong>Request Body:</strong> JSON (then tap <em>Add new field → Text</em> and paste the JSON below as the raw body — or use the “File” option with a Text action feeding it)</li>
-          </ul>
-        </>
-      ),
-      copy: { label: "URL", value: url },
-    },
-    {
-      title: "Paste the JSON body",
-      body: <>In the request body, insert magic variables for <em>Battery Level</em> and <em>Power State</em> where shown in brackets.</>,
-      copy: { label: "Body", value: jsonBody },
-    },
-    {
-      title: "Automate it",
-      body: (
-        <>
-          Go to the <strong>Automation</strong> tab → <strong>+</strong> → <em>Time of Day</em> (e.g. 6:45 AM), or <em>Battery Level → Falls Below 30%</em>.
-          Choose your shortcut and turn off <em>Ask Before Running</em>.
-        </>
-      ),
-    },
-    {
-      title: "Test it",
-      body: <>Run the shortcut once manually. You should see your iPhone appear under <em>Last seen</em> below within a few seconds.</>,
-    },
-  ];
+  const extendedJson = `{
+  "token": "${token}",
+  "devices": [
+    { "name": "iPhone",       "level": [Battery Level],        "charging": [Power State] },
+    { "name": "Apple Watch",  "level": [Watch Battery],        "charging": false },
+    { "name": "AirPods Pro",  "level": [AirPods Battery],      "charging": false },
+    { "name": "MacBook Pro",  "level": [Mac Battery via SSH],  "charging": false }
+  ]
+}`;
+
+  const copy = (value: string, label = "Copied") => {
+    navigator.clipboard.writeText(value);
+    toast.success(label);
+  };
+
+  const CopyRow = ({ label, value, mono = true }: { label: string; value: string; mono?: boolean }) => (
+    <div className="flex items-start gap-2 rounded-md border border-border/60 bg-background/70 p-2">
+      <span className="mt-0.5 shrink-0 rounded bg-secondary/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+        {label}
+      </span>
+      <code className={`flex-1 whitespace-pre-wrap break-all text-[11px] ${mono ? "font-mono" : ""}`}>{value}</code>
+      <Button size="sm" variant="secondary" type="button" onClick={() => copy(value)}>
+        <Copy className="h-3 w-3" />
+      </Button>
+    </div>
+  );
+
+  // Visual mock of a Shortcut action card (mimics the iOS UI)
+  const ActionCard = ({
+    icon,
+    color = "bg-blue-500",
+    title,
+    detail,
+    output,
+  }: {
+    icon: React.ReactNode;
+    color?: string;
+    title: string;
+    detail?: React.ReactNode;
+    output?: string;
+  }) => (
+    <div className="rounded-lg border border-border/60 bg-gradient-to-b from-background/80 to-background/40 p-2.5 shadow-sm">
+      <div className="flex items-start gap-2.5">
+        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-white ${color}`}>
+          {icon}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[12px] font-semibold leading-tight">{title}</div>
+          {detail && <div className="mt-1 text-[11px] leading-snug text-muted-foreground">{detail}</div>}
+          {output && (
+            <div className="mt-1.5 inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-mono text-primary">
+              → {output}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const Arrow = () => (
+    <div className="flex justify-center py-0.5 text-muted-foreground/60">
+      <svg width="10" height="10" viewBox="0 0 10 10"><path d="M5 1v7M2 5l3 3 3-3" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
+    </div>
+  );
+
+  const Step = ({
+    n,
+    title,
+    children,
+  }: { n: number; title: string; children: React.ReactNode }) => (
+    <li className="flex gap-3">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-[11px] font-semibold text-primary">
+        {n}
+      </span>
+      <div className="flex-1 space-y-2">
+        <div className="text-[13px] font-semibold leading-tight">{title}</div>
+        <div className="space-y-2 text-[11.5px] leading-relaxed text-muted-foreground">{children}</div>
+      </div>
+    </li>
+  );
+
+  const TabBtn = ({ id, label }: { id: typeof tab; label: string }) => (
+    <button
+      type="button"
+      onClick={() => setTab(id)}
+      className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
+        tab === id
+          ? "bg-primary text-primary-foreground shadow-sm"
+          : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+      }`}
+    >
+      {label}
+    </button>
+  );
 
   return (
-    <div className="mt-3 rounded-md border border-border/60 bg-background/40">
+    <div className="mt-3 overflow-hidden rounded-lg border border-border/60 bg-background/40">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -542,49 +592,220 @@ function ShortcutGuide({ url, token }: { url: string; token: string }) {
         <span className="flex items-center gap-2 font-medium">
           <BatteryMedium className="h-3.5 w-3.5 text-primary" />
           iOS Shortcut · step-by-step setup
+          <span className="rounded bg-secondary/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+            ~5 min
+          </span>
         </span>
         <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
           {open ? "Hide" : "Show"}
         </span>
       </button>
+
       {open && (
-        <ol className="space-y-3 border-t border-border/60 p-3 text-xs">
-          {steps.map((step, i) => (
-            <li key={i} className="flex gap-3">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-[11px] font-semibold text-primary">
-                {i + 1}
-              </span>
-              <div className="flex-1 space-y-2">
-                <div className="text-sm font-medium leading-tight">{step.title}</div>
-                <div className="text-xs leading-relaxed text-muted-foreground">{step.body}</div>
-                {step.copy && (
-                  <div className="flex items-start gap-2 rounded border border-border/60 bg-background/60 p-2">
-                    <span className="mt-0.5 shrink-0 text-[10px] uppercase tracking-wider text-muted-foreground">
-                      {step.copy.label}
-                    </span>
-                    <code className="flex-1 whitespace-pre-wrap break-all font-mono text-[11px]">
-                      {step.copy.value}
-                    </code>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(step.copy!.value);
-                        toast.success("Copied");
-                      }}
-                    >
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                )}
+        <div className="border-t border-border/60">
+          {/* Endpoint summary */}
+          <div className="space-y-2 border-b border-border/60 bg-background/30 p-3">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Endpoint</div>
+            <CopyRow label="POST" value={url} />
+            <div className="grid grid-cols-3 gap-2 text-[10px]">
+              <div className="rounded border border-border/60 bg-background/60 p-1.5">
+                <div className="text-muted-foreground">Method</div>
+                <div className="font-mono text-foreground">POST</div>
               </div>
-            </li>
-          ))}
-          <li className="rounded border border-dashed border-border/60 bg-background/40 p-3 text-[11px] text-muted-foreground">
-            Tip: you can include AirPods and Apple Watch by adding additional objects to the <code>devices</code> array, sourcing their levels from a Home Assistant or third-party integration.
-          </li>
-        </ol>
+              <div className="rounded border border-border/60 bg-background/60 p-1.5">
+                <div className="text-muted-foreground">Auth</div>
+                <div className="font-mono text-foreground">token in body</div>
+              </div>
+              <div className="rounded border border-border/60 bg-background/60 p-1.5">
+                <div className="text-muted-foreground">Format</div>
+                <div className="font-mono text-foreground">application/json</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex gap-1 border-b border-border/60 bg-background/20 p-2">
+            <TabBtn id="build" label="1. Build" />
+            <TabBtn id="automate" label="2. Automate" />
+            <TabBtn id="extend" label="3. Extend" />
+            <TabBtn id="troubleshoot" label="Troubleshoot" />
+          </div>
+
+          {tab === "build" && (
+            <ol className="space-y-4 p-4">
+              <Step n={1} title="Open Shortcuts → New Shortcut">
+                <p>
+                  On iPhone, open the <strong>Shortcuts</strong> app → tap <strong>+</strong> in the top-right.
+                  Tap the title bar and rename it to <em>“Maverick Battery Sync”</em>.
+                  Optionally assign a glyph (battery icon) and a color.
+                </p>
+              </Step>
+
+              <Step n={2} title="Add the actions in this order">
+                <p>Tap the search bar at the bottom and add each action below. The preview shows roughly how each card will look in Shortcuts:</p>
+                <div className="space-y-1.5">
+                  <ActionCard
+                    icon={<BatteryMedium className="h-4 w-4" />}
+                    color="bg-green-600"
+                    title="Get Battery Level"
+                    detail="No options. Returns the iPhone battery as 0–100."
+                    output="Battery Level"
+                  />
+                  <Arrow />
+                  <ActionCard
+                    icon={<Zap className="h-4 w-4" />}
+                    color="bg-yellow-600"
+                    title="Get Device Details"
+                    detail={<>Tap the blue parameter and switch from <em>Device Model</em> to <strong>Power State</strong>. Returns <code>true</code>/<code>false</code>.</>}
+                    output="Power State"
+                  />
+                  <Arrow />
+                  <ActionCard
+                    icon={<Webhook className="h-4 w-4" />}
+                    color="bg-blue-600"
+                    title="Get Contents of URL"
+                    detail={<>Paste the URL above. Tap <strong>Show More</strong> to expose Method / Headers / Body.</>}
+                  />
+                </div>
+              </Step>
+
+              <Step n={3} title="Configure the URL action">
+                <div className="rounded-md border border-border/60 bg-background/60 p-2.5 text-[11px]">
+                  <table className="w-full">
+                    <tbody className="[&_td]:py-1 [&_td:first-child]:pr-3 [&_td:first-child]:text-muted-foreground">
+                      <tr><td>URL</td><td className="font-mono break-all">{url}</td></tr>
+                      <tr><td>Method</td><td className="font-mono">POST</td></tr>
+                      <tr><td>Headers</td><td className="font-mono">Content-Type: application/json</td></tr>
+                      <tr><td>Request Body</td><td className="font-mono">JSON → choose <strong>File</strong> field</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p>
+                  For the body, use a <strong>Text</strong> action above the URL action and paste the JSON below into it.
+                  Then in the URL action, set <em>Request Body → File</em> to that Text variable.
+                  Tap the bracketed values <code>[Battery Level]</code> and <code>[Power State]</code> to replace them with the magic variables from steps above.
+                </p>
+                <CopyRow label="Body" value={jsonBody} />
+              </Step>
+
+              <Step n={4} title="Run once to test">
+                <p>
+                  Tap the <strong>▶︎ Play</strong> button in the bottom-right of the editor. Grant the network permission prompt.
+                  Within a few seconds, your iPhone should appear under <em>Last seen devices</em> below.
+                </p>
+                <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-2 text-[11px] text-emerald-300/90">
+                  Expected response: <code className="font-mono">200 OK</code> with body <code className="font-mono">{`{"ok":true}`}</code>
+                </div>
+              </Step>
+            </ol>
+          )}
+
+          {tab === "automate" && (
+            <ol className="space-y-4 p-4">
+              <Step n={1} title="Open the Automation tab">
+                <p>In Shortcuts, tap <strong>Automation</strong> at the bottom → <strong>+</strong> → <strong>Create Personal Automation</strong>.</p>
+              </Step>
+              <Step n={2} title="Pick a trigger (recommended combo)">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-md border border-border/60 bg-background/60 p-2.5">
+                    <div className="text-[12px] font-semibold">Time of Day</div>
+                    <div className="mt-1 text-[11px] text-muted-foreground">Daily at <strong>6:45 AM</strong> — gives Maverick fresh battery data before the morning briefing.</div>
+                  </div>
+                  <div className="rounded-md border border-border/60 bg-background/60 p-2.5">
+                    <div className="text-[12px] font-semibold">Battery Level</div>
+                    <div className="mt-1 text-[11px] text-muted-foreground">Falls below <strong>30%</strong> — keeps the dashboard accurate during the day.</div>
+                  </div>
+                  <div className="rounded-md border border-border/60 bg-background/60 p-2.5">
+                    <div className="text-[12px] font-semibold">Charger</div>
+                    <div className="mt-1 text-[11px] text-muted-foreground">Is <strong>Connected</strong> / Disconnected — captures plug/unplug events.</div>
+                  </div>
+                  <div className="rounded-md border border-border/60 bg-background/60 p-2.5">
+                    <div className="text-[12px] font-semibold">App</div>
+                    <div className="mt-1 text-[11px] text-muted-foreground">When <strong>Maverick</strong> is opened — refresh on demand.</div>
+                  </div>
+                </div>
+              </Step>
+              <Step n={3} title="Attach the shortcut">
+                <p>
+                  Tap <strong>Next</strong> → search for <em>Run Shortcut</em> → select <strong>Maverick Battery Sync</strong>.
+                  On the final screen, turn <strong>Ask Before Running</strong> <em>off</em> and <strong>Notify When Run</strong> <em>off</em> for silent execution.
+                </p>
+              </Step>
+              <Step n={4} title="Verify in the Maverick dashboard">
+                <p>
+                  Return to this page. The <em>Last seen</em> column should update to “a few seconds ago”.
+                  If it doesn't, jump to the <strong>Troubleshoot</strong> tab.
+                </p>
+              </Step>
+            </ol>
+          )}
+
+          {tab === "extend" && (
+            <div className="space-y-4 p-4 text-[11.5px] leading-relaxed text-muted-foreground">
+              <div>
+                <div className="text-[13px] font-semibold text-foreground">Multiple devices in one payload</div>
+                <p className="mt-1">
+                  The <code>devices</code> array accepts any number of entries. Use one shortcut per source device (iPhone, iPad),
+                  or aggregate them via Home Assistant / Mac scripts and POST once.
+                </p>
+              </div>
+              <CopyRow label="JSON" value={extendedJson} />
+              <div className="grid gap-2 sm:grid-cols-2 text-[11px]">
+                <div className="rounded-md border border-border/60 bg-background/60 p-2.5">
+                  <div className="font-semibold text-foreground">Apple Watch</div>
+                  <p className="mt-1">Create the same shortcut on the Watch via <em>Shortcuts on Apple Watch</em> and an independent automation. Watch can't read iPhone battery and vice-versa.</p>
+                </div>
+                <div className="rounded-md border border-border/60 bg-background/60 p-2.5">
+                  <div className="font-semibold text-foreground">AirPods</div>
+                  <p className="mt-1">iOS doesn't expose AirPods battery to Shortcuts directly. Use a HomeBridge / Home Assistant integration that polls them, then POST from there.</p>
+                </div>
+                <div className="rounded-md border border-border/60 bg-background/60 p-2.5">
+                  <div className="font-semibold text-foreground">Mac</div>
+                  <p className="mt-1">On macOS, build the same shortcut in the Shortcuts app and trigger it with <em>launchd</em> or a Calendar event for laptop battery.</p>
+                </div>
+                <div className="rounded-md border border-border/60 bg-background/60 p-2.5">
+                  <div className="font-semibold text-foreground">Home Assistant</div>
+                  <p className="mt-1">Use a <code>rest_command</code> with the same URL + body. Trigger on any battery sensor state change.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {tab === "troubleshoot" && (
+            <div className="divide-y divide-border/60 p-1 text-[11.5px]">
+              {[
+                {
+                  q: "The shortcut runs but no device appears",
+                  a: <>Check the response from <em>Get Contents of URL</em> — long-press the action and toggle <strong>Show When Run</strong>. A <code>401</code> means the token is wrong (re-copy from the field above). A <code>400</code> means the JSON is malformed — make sure <code>[Battery Level]</code> is an actual magic variable, not literal text.</>,
+                },
+                {
+                  q: "Body shows up as a string of text on the server",
+                  a: <>In the URL action, ensure <strong>Request Body</strong> is set to <em>JSON</em> (or <em>File</em> pointing to a Text variable), not <em>Form</em>. The <code>Content-Type</code> header must be <code>application/json</code> exactly.</>,
+                },
+                {
+                  q: "Automation never fires",
+                  a: <>iOS 17+ runs personal automations silently, but only if <em>Ask Before Running</em> is off. Also confirm the iPhone is unlocked at the trigger time for time-based automations.</>,
+                },
+                {
+                  q: "Charging always shows false",
+                  a: <>The <em>Power State</em> output is a boolean; if you see <code>0</code>/<code>1</code> instead, wrap it in an <em>If</em> action: <code>If Power State is 1 → true, Otherwise → false</code>.</>,
+                },
+                {
+                  q: "Want to reset the token",
+                  a: <>Use the <strong>Rotate token</strong> control in the battery card above; the previous token will stop working immediately.</>,
+                },
+              ].map((item, i) => (
+                <details key={i} className="group px-3 py-2.5">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-[12px] font-medium text-foreground">
+                    <span>{item.q}</span>
+                    <span className="text-muted-foreground transition group-open:rotate-45">+</span>
+                  </summary>
+                  <div className="mt-2 text-[11.5px] leading-relaxed text-muted-foreground">{item.a}</div>
+                </details>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
