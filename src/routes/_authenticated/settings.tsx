@@ -171,3 +171,22 @@ function SettingsPage() {
     </div>
   );
 }
+
+function NewsTopicsInput({ initial, onSave }: { initial: string; onSave: (v: string) => void }) {
+  const [value, setValue] = useState(initial);
+  useEffect(() => setValue(initial), [initial]);
+  return (
+    <div className="rounded-md border border-border/60 bg-background/40 p-3">
+      <Label className="text-sm font-medium">Your news topics</Label>
+      <div className="text-xs text-muted-foreground mb-2">
+        Comma-separated. Examples: AI industry, NBA, climate policy, Austin TX, F1.
+      </div>
+      <Input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => value !== initial && onSave(value)}
+        placeholder="AI, markets, NBA, my city…"
+      />
+    </div>
+  );
+}
