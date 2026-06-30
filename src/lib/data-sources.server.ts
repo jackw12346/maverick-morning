@@ -65,7 +65,8 @@ export async function collectCalendar(userId: string): Promise<Section | null> {
 export async function collectWhoop(userId: string): Promise<Section | null> {
   const token = await getValidAccessToken({ userId, provider: "whoop" });
   if (!token) return null;
-  // Latest recovery
+
+  // Latest recovery (Whoop returns most recent first by default).
   const res = await fetch(
     "https://api.prod.whoop.com/developer/v1/recovery?limit=1",
     { headers: { Authorization: `Bearer ${token}` } },
@@ -80,6 +81,9 @@ export async function collectWhoop(userId: string): Promise<Section | null> {
   }
   const json = (await res.json()) as {
     records?: Array<{
+      created_at?: string;
+      updated_at?: string;
+      score_state?: string;
       score?: {
         recovery_score?: number;
         hrv_rmssd_milli?: number;
@@ -87,12 +91,16 @@ export async function collectWhoop(userId: string): Promise<Section | null> {
       };
     }>;
   };
-  const r = json.records?.[0]?.score;
+  const rec = json.records?.[0];
+  const r = rec?.score;
   if (!r) {
     return {
       id: "whoop",
       title: "Recovery",
-      content: "No recovery data yet for today.",
+      content:
+        rec?.score_state && rec.score_state !== "SCORED"
+          ? `Latest recovery is still ${rec.score_state.toLowerCase()} on Whoop's side.`
+          : "No recovery data yet for today.",
     };
   }
   const parts: string[] = [];
@@ -100,10 +108,20 @@ export async function collectWhoop(userId: string): Promise<Section | null> {
     parts.push(`Recovery ${Math.round(r.recovery_score)}%`);
   if (r.hrv_rmssd_milli != null) parts.push(`HRV ${Math.round(r.hrv_rmssd_milli)}ms`);
   if (r.resting_heart_rate != null) parts.push(`RHR ${r.resting_heart_rate}`);
+
+  // Flag staleness so the model can mention it instead of pretending it's today's.
+  let suffix = "";
+  const ts = rec.updated_at ?? rec.created_at;
+  if (ts) {
+    const ageHrs = (Date.now() - new Date(ts).getTime()) / 36e5;
+    if (ageHrs > 18) {
+      suffix = ` (last synced ${Math.round(ageHrs)}h ago — Whoop hasn't pushed this morning's score yet)`;
+    }
+  }
   return {
     id: "whoop",
     title: "Recovery",
-    content: parts.join(", ") + ".",
+    content: parts.join(", ") + "." + suffix,
   };
 }
 
@@ -133,44 +151,95 @@ export async function collectBatteries(userId: string): Promise<Section | null> 
   return { id: "batteries", title: "Devices", content: line };
 }
 
-export async function collectRocaNews(): Promise<Section | null> {
+// Fetch headlines from Google News RSS for a given query.
+async function fetchGoogleNews(query: string, limit = 5): Promise<string[]> {
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
+  const res = await fetch(url, {
+    headers: { "User-Agent": "Maverick-Briefing/1.0" },
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!res.ok) return [];
+  const xml = await res.text();
+  const items = Array.from(xml.matchAll(/<item>[\s\S]*?<title>([\s\S]*?)<\/title>[\s\S]*?<\/item>/g))
+    .map((m) => decodeEntities(m[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim()))
+    .filter((t) => t.length > 8);
+  return items.slice(0, limit);
+}
+
+export async function collectTailoredNews(
+  topics: string,
+  apiKey: string | undefined,
+  displayName: string,
+): Promise<Section | null> {
+  const cleanedTopics = topics
+    .split(/[,\n]/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const queries = cleanedTopics.length > 0 ? cleanedTopics : ["top world news today"];
   try {
-    const res = await fetch("https://www.readroca.com/", {
-      headers: { "User-Agent": "Maverick-Briefing/1.0" },
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!res.ok) throw new Error(`status ${res.status}`);
-    const html = await res.text();
-    // Extract <h2>/<h3> headlines; readroca uses standard article headings.
-    const headlines = Array.from(
-      html.matchAll(/<h[23][^>]*>([^<]{12,140})<\/h[23]>/gi),
-    )
-      .map((m) => decodeEntities(m[1].trim()))
-      .filter(
-        (t) =>
-          t.length > 12 &&
-          !/subscribe|sign in|menu|read roca|newsletter/i.test(t),
-      );
-    const unique = Array.from(new Set(headlines)).slice(0, 4);
-    if (unique.length === 0) {
+    const all = await Promise.all(
+      queries.slice(0, 5).map(async (q) => {
+        const heads = await fetchGoogleNews(q, 4);
+        return { topic: q, headlines: heads };
+      }),
+    );
+    const groups = all.filter((g) => g.headlines.length > 0);
+    if (groups.length === 0) {
       return {
         id: "news",
-        title: "Roca News",
-        content: "Could not parse top headlines this morning.",
+        title: "News",
+        content: "News feed unavailable this morning.",
       };
     }
-    return {
-      id: "news",
-      title: "Roca News",
-      content: `Top stories: ${unique.join("; ")}.`,
-    };
+
+    // If we have an AI key, let the model tailor a 2-3 sentence brief.
+    if (apiKey) {
+      const prompt = [
+        `Subject: ${displayName}.`,
+        `Their interests: ${cleanedTopics.join(", ") || "general world news"}.`,
+        "Below are real headlines from this morning grouped by topic. Write a tight 2-4 sentence news brief tailored to them, prioritizing what is most relevant and novel. No headlines verbatim — synthesize. Do not invent facts beyond the headlines.",
+        ...groups.map(
+          (g) => `Topic "${g.topic}":\n- ${g.headlines.join("\n- ")}`,
+        ),
+      ].join("\n\n");
+      try {
+        const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              { role: "system", content: "You write concise personalized news briefs." },
+              { role: "user", content: prompt },
+            ],
+          }),
+          signal: AbortSignal.timeout(15000),
+        });
+        if (res.ok) {
+          const json = (await res.json()) as {
+            choices: { message: { content: string } }[];
+          };
+          const text = json.choices?.[0]?.message?.content?.trim();
+          if (text) return { id: "news", title: "News", content: text };
+        } else {
+          console.error("[news ai]", res.status, await res.text().catch(() => ""));
+        }
+      } catch (e) {
+        console.error("[news ai]", e);
+      }
+    }
+
+    // Fallback: raw headline list.
+    const flat = groups
+      .map((g) => `${g.topic}: ${g.headlines.slice(0, 2).join("; ")}`)
+      .join(". ");
+    return { id: "news", title: "News", content: flat + "." };
   } catch (err) {
-    console.error("[roca]", err);
-    return {
-      id: "news",
-      title: "Roca News",
-      content: "Roca News feed unavailable.",
-    };
+    console.error("[news]", err);
+    return { id: "news", title: "News", content: "News feed unavailable." };
   }
 }
 
