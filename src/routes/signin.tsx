@@ -123,9 +123,14 @@ function AuthPage() {
           <div className="h-px flex-1 bg-border" />
         </div>
 
-        <Button type="button" variant="secondary" onClick={google} className="w-full">
-          Continue with Google
-        </Button>
+        <div className="space-y-2">
+          <Button type="button" variant="secondary" onClick={() => oauth("google")} className="w-full">
+            Continue with Google
+          </Button>
+          <Button type="button" variant="outline" onClick={() => oauth("apple")} className="w-full bg-black text-white hover:bg-black/90 border-black">
+             Continue with Apple
+          </Button>
+        </div>
 
         <button
           type="button"
