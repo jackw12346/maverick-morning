@@ -84,9 +84,20 @@ export async function collectWeather(location: string): Promise<Section | null> 
   if (!c || !d) return { id: "weather", title: "Weather", content: "Weather feed unavailable." };
   const cond = WX[c.weather_code] ?? "conditions";
   const dayCond = WX[d.weather_code[0]] ?? cond;
-  const sunset = d.sunset[0]
-    ? new Date(d.sunset[0]).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: geo.tz })
-    : "";
+  // Open-Meteo returns sunset as a naive local-time ISO string like "2024-06-30T20:34"
+  // (already in the requested timezone). Parse the hour/minute directly — don't feed it
+  // to `new Date()` which would treat it as UTC and shift the time.
+  const sunsetRaw = d.sunset[0] ?? "";
+  const sunsetMatch = sunsetRaw.match(/T(\d{2}):(\d{2})/);
+  let sunset = "";
+  if (sunsetMatch) {
+    const h = parseInt(sunsetMatch[1], 10);
+    const m = sunsetMatch[2];
+    const period = h >= 12 ? "PM" : "AM";
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    sunset = `${h12}:${m} ${period}`;
+  }
+
   const precipNote = d.precipitation_probability_max[0] >= 30
     ? ` ${d.precipitation_probability_max[0]}% chance of precipitation (${d.precipitation_sum[0].toFixed(2)}").`
     : "";
