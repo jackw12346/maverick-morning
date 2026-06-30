@@ -84,9 +84,20 @@ export async function collectWeather(location: string): Promise<Section | null> 
   if (!c || !d) return { id: "weather", title: "Weather", content: "Weather feed unavailable." };
   const cond = WX[c.weather_code] ?? "conditions";
   const dayCond = WX[d.weather_code[0]] ?? cond;
-  const sunset = d.sunset[0]
-    ? new Date(d.sunset[0]).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: geo.tz })
-    : "";
+  // Open-Meteo returns sunset as a naive local-time ISO string like "2024-06-30T20:34"
+  // (already in the requested timezone). Parse the hour/minute directly — don't feed it
+  // to `new Date()` which would treat it as UTC and shift the time.
+  const sunsetRaw = d.sunset[0] ?? "";
+  const sunsetMatch = sunsetRaw.match(/T(\d{2}):(\d{2})/);
+  let sunset = "";
+  if (sunsetMatch) {
+    const h = parseInt(sunsetMatch[1], 10);
+    const m = sunsetMatch[2];
+    const period = h >= 12 ? "PM" : "AM";
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    sunset = `${h12}:${m} ${period}`;
+  }
+
   const precipNote = d.precipitation_probability_max[0] >= 30
     ? ` ${d.precipitation_probability_max[0]}% chance of precipitation (${d.precipitation_sum[0].toFixed(2)}").`
     : "";
@@ -473,8 +484,11 @@ export async function collectBatteries(userId: string): Promise<Section | null> 
   return { id: "batteries", title: "Devices", content: line };
 }
 
-// Fetch headlines from Google News RSS for a given query.
-async function fetchGoogleNews(query: string, limit = 5): Promise<string[]> {
+// Fetch headlines + source from Google News RSS for a given query.
+// Google News titles are formatted "Headline - SourceName"; <source> tag also present.
+type NewsItem = { headline: string; source: string };
+
+async function fetchGoogleNews(query: string, limit = 5): Promise<NewsItem[]> {
   const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
   const res = await fetch(url, {
     headers: { "User-Agent": "Maverick-Briefing/1.0" },
@@ -482,10 +496,26 @@ async function fetchGoogleNews(query: string, limit = 5): Promise<string[]> {
   });
   if (!res.ok) return [];
   const xml = await res.text();
-  const items = Array.from(xml.matchAll(/<item>[\s\S]*?<title>([\s\S]*?)<\/title>[\s\S]*?<\/item>/g))
-    .map((m) => decodeEntities(m[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim()))
-    .filter((t) => t.length > 8);
-  return items.slice(0, limit);
+  const items: NewsItem[] = [];
+  for (const m of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
+    const block = m[1];
+    const titleMatch = block.match(/<title>([\s\S]*?)<\/title>/);
+    if (!titleMatch) continue;
+    const rawTitle = decodeEntities(titleMatch[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim());
+    if (rawTitle.length < 8) continue;
+    const sourceTag = block.match(/<source[^>]*>([\s\S]*?)<\/source>/);
+    let source = sourceTag ? decodeEntities(sourceTag[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim()) : "";
+    let headline = rawTitle;
+    // Strip trailing " - Source" suffix if present.
+    const split = rawTitle.match(/^(.*)\s-\s([^-]+)$/);
+    if (split) {
+      headline = split[1].trim();
+      if (!source) source = split[2].trim();
+    }
+    items.push({ headline, source: source || "source unknown" });
+    if (items.length >= limit) break;
+  }
+  return items;
 }
 
 export async function collectTailoredNews(
@@ -519,11 +549,14 @@ export async function collectTailoredNews(
       const prompt = [
         `Subject: ${displayName}.`,
         `Their interests: ${cleanedTopics.join(", ") || "general world news"}.`,
-        "Below are real headlines from this morning grouped by topic. Write a tight 2-4 sentence news brief tailored to them, prioritizing what is most relevant and novel. No headlines verbatim — synthesize. Do not invent facts beyond the headlines.",
+        "Below are real headlines from this morning grouped by topic, each with its source. Write a tight 2-4 sentence news brief tailored to them, prioritizing what is most relevant and novel. Synthesize — do not quote headlines verbatim. ALWAYS attribute each item with its source in parentheses, e.g. \"(Reuters)\". Do not invent facts beyond the headlines.",
         ...groups.map(
-          (g) => `Topic "${g.topic}":\n- ${g.headlines.join("\n- ")}`,
+          (g) =>
+            `Topic "${g.topic}":\n` +
+            g.headlines.map((h) => `- ${h.headline} (${h.source})`).join("\n"),
         ),
       ].join("\n\n");
+
       try {
         const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
@@ -554,11 +587,19 @@ export async function collectTailoredNews(
       }
     }
 
-    // Fallback: raw headline list.
+    // Fallback: raw headline list with sources.
     const flat = groups
-      .map((g) => `${g.topic}: ${g.headlines.slice(0, 2).join("; ")}`)
+      .map(
+        (g) =>
+          `${g.topic}: ` +
+          g.headlines
+            .slice(0, 2)
+            .map((h) => `${h.headline} (${h.source})`)
+            .join("; "),
+      )
       .join(". ");
     return { id: "news", title: "News", content: flat + "." };
+
   } catch (err) {
     console.error("[news]", err);
     return { id: "news", title: "News", content: "News feed unavailable." };
