@@ -236,23 +236,31 @@ function SettingsPage() {
             <div className="flex items-center justify-between gap-4 rounded-md border border-border/60 bg-background/40 p-3">
               <div>
                 <Label className="text-sm font-medium">Voice</Label>
-                <div className="text-xs text-muted-foreground">Default narration voice.</div>
+                <div className="text-xs text-muted-foreground">
+                  Default narration voice. Plays a short sample when changed.
+                </div>
               </div>
-              <Select
-                value={data.voice ?? "alloy"}
-                onValueChange={(v) => mut.mutate({ voice: v as (typeof voices)[number] })}
-              >
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {voices.map((v) => (
-                    <SelectItem key={v} value={v} className="capitalize">
-                      {v}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                {previewingVoice ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-hud" />
+                ) : null}
+                <Select
+                  value={data.voice ?? "alloy"}
+                  onValueChange={(v) => handleVoiceChange(v as (typeof voices)[number])}
+                >
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {voices.map((v) => (
+                      <SelectItem key={v} value={v} className="capitalize">
+                        {v}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             </div>
           </div>
         )}
