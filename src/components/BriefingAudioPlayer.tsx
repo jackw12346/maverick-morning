@@ -99,6 +99,18 @@ export function BriefingAudioPlayer({ src, className }: BriefingAudioPlayerProps
           {fmt(duration)}
         </span>
       </div>
+      <button
+        type="button"
+        onClick={() => {
+          const steps = [1, 1.25, 1.5, 1.75, 2, 0.75];
+          const next = steps[(steps.indexOf(rate) + 1) % steps.length] ?? 1;
+          setRate(next);
+        }}
+        className="mono rounded-md border border-border/60 px-2 py-1 text-[10px] tabular-nums text-muted-foreground transition hover:text-foreground"
+        aria-label="Playback speed"
+      >
+        {rate}x
+      </button>
       <Volume2 className="h-4 w-4 text-muted-foreground" />
     </div>
   );
