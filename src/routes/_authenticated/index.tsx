@@ -10,6 +10,8 @@ import {
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import { BriefingAudioPlayer } from "@/components/BriefingAudioPlayer";
 import { Button } from "@/components/ui/button";
