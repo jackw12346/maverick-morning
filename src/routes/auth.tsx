@@ -125,6 +125,9 @@ function AuthPage() {
         <Button type="button" variant="secondary" onClick={google} className="w-full">
           Continue with Google
         </Button>
+        <Button type="button" variant="secondary" onClick={apple} className="mt-2 w-full">
+           Continue with Apple
+        </Button>
 
         <button
           type="button"
