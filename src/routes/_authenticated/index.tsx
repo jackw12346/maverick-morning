@@ -115,9 +115,9 @@ function Dashboard() {
             </div>
           ) : latest.data ? (
             <div className="space-y-5">
-              <p className="whitespace-pre-wrap text-base leading-relaxed text-foreground/90">
-                {latest.data.briefing_text}
-              </p>
+              <div className="prose prose-sm prose-invert max-w-none text-foreground/90 prose-p:leading-relaxed prose-strong:text-foreground">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{latest.data.briefing_text}</ReactMarkdown>
+              </div>
               {latest.data.audio_url && <BriefingAudioPlayer src={latest.data.audio_url} />}
             </div>
           ) : (
