@@ -84,21 +84,29 @@ export async function collectCalendar(userId: string): Promise<Section | null> {
   );
   const allItems = results.flat();
 
-  if (!res.ok) {
-    console.error("[calendar]", res.status, await res.text().catch(() => ""));
-    return {
-      id: "calendar",
-      title: "Calendar",
-      content: "Calendar fetch failed — try reconnecting Google Calendar.",
-    };
-  }
-  const json = (await res.json()) as {
-    items?: Array<{
-      summary?: string;
-      start?: { dateTime?: string; date?: string };
-    }>;
-  };
-  const events = (json.items ?? []).filter((e) => e.summary);
+  // Dedupe and sort by start time, filter to events within tz "today" window
+  const todayEnd = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  const seen = new Set<string>();
+  const events = allItems
+    .filter((e: any) => {
+      if (!e?.summary) return false;
+      const key = `${e.id}-${e.start?.dateTime ?? e.start?.date}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      const startTime = e.start?.dateTime
+        ? new Date(e.start.dateTime)
+        : e.start?.date
+          ? new Date(e.start.date + "T00:00:00Z")
+          : null;
+      if (!startTime) return false;
+      return startTime >= start && startTime < todayEnd;
+    })
+    .sort((a: any, b: any) => {
+      const at = new Date(a.start?.dateTime ?? a.start?.date ?? 0).getTime();
+      const bt = new Date(b.start?.dateTime ?? b.start?.date ?? 0).getTime();
+      return at - bt;
+    });
+
   if (events.length === 0) {
     return {
       id: "calendar",
@@ -106,11 +114,12 @@ export async function collectCalendar(userId: string): Promise<Section | null> {
       content: "No events on the calendar today. The day is yours.",
     };
   }
-  const lines = events.slice(0, 6).map((e) => {
+  const lines = events.slice(0, 8).map((e: any) => {
     const when = e.start?.dateTime
-      ? new Date(e.start.dateTime).toLocaleTimeString([], {
+      ? new Date(e.start.dateTime).toLocaleTimeString("en-US", {
           hour: "numeric",
           minute: "2-digit",
+          timeZone: tz,
         })
       : "All day";
     return `${when} ${e.summary}`;
@@ -121,6 +130,7 @@ export async function collectCalendar(userId: string): Promise<Section | null> {
     content: `${events.length} event${events.length === 1 ? "" : "s"} today: ${lines.join("; ")}.`,
   };
 }
+
 
 export async function collectWhoop(userId: string): Promise<Section | null> {
   const token = await getValidAccessToken({ userId, provider: "whoop" });
