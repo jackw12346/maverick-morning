@@ -101,14 +101,14 @@ function AuthenticatedLayout() {
 
         {/* main */}
         <main className="min-w-0 flex-1">
-          <header className="mb-6 flex items-center justify-between rounded-md border border-border/60 bg-card/40 px-4 py-2 backdrop-blur">
+          <header className="mb-6 flex items-center justify-between border-b border-border/60 pb-4">
             <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-success shadow-[0_0_8px_var(--color-success)]" />
-              <span className="mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                System nominal · all sectors online
+              <span className="h-1.5 w-1.5 rounded-full bg-success" />
+              <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                All systems online
               </span>
             </div>
-            <div className="mono text-[10px] uppercase tracking-[0.2em] text-hud">
+            <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
               {time.toLocaleString(undefined, {
                 weekday: "short",
                 month: "short",
