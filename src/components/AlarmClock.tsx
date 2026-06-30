@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlarmClock as AlarmIcon, BellRing, Loader2, Power } from "lucide-react";
 import { toast } from "sonner";
@@ -12,7 +12,7 @@ const STORAGE_KEY = "maverick.alarm.v1";
 const LEAD_MINUTES = 5;
 
 type Persisted = {
-  time: string; // "HH:MM"
+  time: string;
   enabled: boolean;
 };
 
@@ -54,6 +54,52 @@ function fmtCountdown(ms: number) {
     .padStart(2, "0")}`;
 }
 
+/**
+ * Build a short looping beep as a WAV data URL.
+ * Using an HTMLAudioElement (instead of WebAudio scheduled beeps) means once
+ * the user "unlocks" playback by toggling the alarm on, the browser will let
+ * the same element resume/play later — even when the tab is backgrounded —
+ * because the gesture context is preserved on the element itself.
+ */
+function buildBeepDataUrl(): string {
+  const sampleRate = 44100;
+  const totalSeconds = 2; // 2s pattern, looped
+  const totalSamples = sampleRate * totalSeconds;
+  const buffer = new ArrayBuffer(44 + totalSamples * 2);
+  const view = new DataView(buffer);
+  // RIFF header
+  const writeStr = (off: number, s: string) => {
+    for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i));
+  };
+  writeStr(0, "RIFF");
+  view.setUint32(4, 36 + totalSamples * 2, true);
+  writeStr(8, "WAVE");
+  writeStr(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeStr(36, "data");
+  view.setUint32(40, totalSamples * 2, true);
+  // Two 0.4s beeps per 2s window
+  for (let i = 0; i < totalSamples; i++) {
+    const t = i / sampleRate;
+    const inBeep1 = t < 0.4;
+    const inBeep2 = t >= 0.9 && t < 1.3;
+    const env = inBeep1 || inBeep2 ? 0.35 : 0;
+    const sample = env * Math.sin(2 * Math.PI * 880 * t);
+    view.setInt16(44 + i * 2, Math.max(-1, Math.min(1, sample)) * 0x7fff, true);
+  }
+  // Convert to base64
+  const bytes = new Uint8Array(buffer);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return `data:audio/wav;base64,${btoa(bin)}`;
+}
+
 export function AlarmClock() {
   const qc = useQueryClient();
   const [state, setState] = useState<Persisted>(() =>
@@ -62,16 +108,18 @@ export function AlarmClock() {
   const [now, setNow] = useState(() => Date.now());
   const [ringing, setRinging] = useState(false);
 
-  // Track which alarm occurrence we've already pre-generated / rung for, so we don't loop.
   const preGeneratedFor = useRef<number | null>(null);
   const rangFor = useRef<number | null>(null);
 
-  // Beep loop (WebAudio) — created on ring, destroyed on stop.
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const beepTimerRef = useRef<number | null>(null);
+  // Alarm tone — looping <audio> primed by user gesture on toggle.
+  const beepUrl = useMemo(() => (typeof window === "undefined" ? "" : buildBeepDataUrl()), []);
+  const beepAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Post-stop briefing audio
   const briefingAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Wake Lock to reduce throttling while armed
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
   const generate = useMutation({
     mutationFn: () => generateMorningBriefing(),
@@ -85,19 +133,59 @@ export function AlarmClock() {
     save(state);
   }, [state]);
 
-  // Tick every second
+  // Tick every second (also use setTimeout fallbacks below for precision)
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, []);
 
-  // Scheduling effect
+  const startRinging = useCallback(() => {
+    setRinging(true);
+
+    // Try the primed <audio> element first — works after page-level gesture,
+    // even when tab is backgrounded.
+    const el = beepAudioRef.current;
+    if (el) {
+      try {
+        el.loop = true;
+        el.volume = 1;
+        el.currentTime = 0;
+        const p = el.play();
+        if (p && typeof p.catch === "function") {
+          p.catch((err) => console.warn("[alarm] audio.play() rejected", err));
+        }
+      } catch (e) {
+        console.warn("[alarm] audio.play() threw", e);
+      }
+    }
+
+    // Best-effort notification so a backgrounded tab still alerts the user
+    try {
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("Maverick — wake up", {
+          body: "Your morning briefing is ready. Tap the tab to stop the alarm.",
+          tag: "maverick-alarm",
+          requireInteraction: true,
+        });
+      }
+    } catch {
+      /* ignore */
+    }
+
+    // Vibrate on supported devices
+    try {
+      navigator.vibrate?.([400, 200, 400, 200, 400]);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  // Scheduling effect (polling) — fires pre-gen + ringing as time crosses thresholds
   useEffect(() => {
     if (!state.enabled || ringing) return;
     const target = nextOccurrence(state.time).getTime();
     const leadAt = target - LEAD_MINUTES * 60 * 1000;
 
-    // Pre-generate the briefing once per occurrence
     if (
       preGeneratedFor.current !== target &&
       now >= leadAt &&
@@ -109,64 +197,80 @@ export function AlarmClock() {
       generate.mutate();
     }
 
-    // Ring at target time
     if (rangFor.current !== target && now >= target) {
       rangFor.current = target;
-      // Ensure we have a briefing even if pre-gen was skipped
       if (preGeneratedFor.current !== target) {
         preGeneratedFor.current = target;
         generate.mutate();
       }
       startRinging();
     }
-  }, [now, state.enabled, state.time, ringing, generate]);
+  }, [now, state.enabled, state.time, ringing, generate, startRinging]);
 
-  function startRinging() {
-    setRinging(true);
-    try {
-      const Ctx =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext })
-          .webkitAudioContext;
-      const ctx = new Ctx();
-      audioCtxRef.current = ctx;
-      const playBeep = () => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.value = 880;
-        gain.gain.setValueAtTime(0, ctx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.02);
-        gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.45);
-        osc.connect(gain).connect(ctx.destination);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.5);
-      };
-      playBeep();
-      beepTimerRef.current = window.setInterval(playBeep, 900);
-    } catch (e) {
-      console.warn("[alarm] audio blocked", e);
-    }
-  }
+  // Precise setTimeout fallback — browsers throttle setInterval in background
+  // tabs, so schedule an explicit timer to the next target.
+  useEffect(() => {
+    if (!state.enabled || ringing) return;
+    const target = nextOccurrence(state.time).getTime();
+    const delay = target - Date.now();
+    if (delay <= 0 || delay > 12 * 60 * 60 * 1000) return;
+    const id = window.setTimeout(() => {
+      if (rangFor.current === target) return;
+      rangFor.current = target;
+      if (preGeneratedFor.current !== target) {
+        preGeneratedFor.current = target;
+        generate.mutate();
+      }
+      startRinging();
+    }, delay + 200);
+    return () => window.clearTimeout(id);
+  }, [state.enabled, state.time, ringing, generate, startRinging]);
+
+  // If the tab was throttled/suspended past the target, catch up on visibility
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState !== "visible") return;
+      if (!state.enabled || ringing) return;
+      const target = nextOccurrence(state.time).getTime();
+      // nextOccurrence always returns a future time, so if we just woke up past
+      // a missed alarm, compare against the prior occurrence (target - 24h).
+      const prior = target - 24 * 60 * 60 * 1000;
+      const candidate = Date.now() >= prior && rangFor.current !== prior ? prior : null;
+      if (candidate && Date.now() - candidate < 30 * 60 * 1000) {
+        rangFor.current = candidate;
+        if (preGeneratedFor.current !== candidate) {
+          preGeneratedFor.current = candidate;
+          generate.mutate();
+        }
+        startRinging();
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", onVis);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("focus", onVis);
+    };
+  }, [state.enabled, state.time, ringing, generate, startRinging]);
 
   async function stopRinging() {
     setRinging(false);
-    if (beepTimerRef.current) {
-      window.clearInterval(beepTimerRef.current);
-      beepTimerRef.current = null;
-    }
-    if (audioCtxRef.current) {
+    const el = beepAudioRef.current;
+    if (el) {
       try {
-        await audioCtxRef.current.close();
+        el.pause();
+        el.currentTime = 0;
       } catch {
         /* ignore */
       }
-      audioCtxRef.current = null;
+    }
+    try {
+      navigator.vibrate?.(0);
+    } catch {
+      /* ignore */
     }
 
-    // Fetch the freshest briefing and play it
     try {
-      // Wait for in-flight generation if any
       if (generate.isPending) {
         toast.info("Finishing your briefing…");
         await new Promise<void>((resolve) => {
@@ -193,15 +297,16 @@ export function AlarmClock() {
     }
   }
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (beepTimerRef.current) window.clearInterval(beepTimerRef.current);
-      if (audioCtxRef.current) audioCtxRef.current.close().catch(() => {});
+      if (beepAudioRef.current) {
+        beepAudioRef.current.pause();
+      }
       if (briefingAudioRef.current) {
         briefingAudioRef.current.pause();
         briefingAudioRef.current = null;
       }
+      wakeLockRef.current?.release().catch(() => {});
     };
   }, []);
 
@@ -211,6 +316,14 @@ export function AlarmClock() {
 
   return (
     <>
+      {/* Hidden audio element — primed on toggle via user gesture */}
+      <audio
+        ref={beepAudioRef}
+        src={beepUrl}
+        loop
+        preload="auto"
+        style={{ display: "none" }}
+      />
       <div className="rounded-xl border border-border/60 bg-card p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -232,25 +345,57 @@ export function AlarmClock() {
             </span>
             <Switch
               checked={state.enabled}
-              onCheckedChange={(v) => {
+              onCheckedChange={async (v) => {
                 setState((s) => ({ ...s, enabled: v }));
                 if (v) {
-                  // Reset trackers so the next occurrence schedules cleanly
                   preGeneratedFor.current = null;
                   rangFor.current = null;
-                  // Prime AudioContext via a silent resume on user gesture
+
+                  // Prime the audio element with the user gesture so play()
+                  // is allowed later even when the tab is backgrounded.
+                  const el = beepAudioRef.current;
+                  if (el) {
+                    try {
+                      el.muted = true;
+                      el.volume = 0;
+                      await el.play();
+                      el.pause();
+                      el.currentTime = 0;
+                      el.muted = false;
+                      el.volume = 1;
+                    } catch (e) {
+                      console.warn("[alarm] could not prime audio", e);
+                    }
+                  }
+
+                  // Ask for notification permission (also a gesture-bound action)
                   try {
-                    const Ctx =
-                      window.AudioContext ||
-                      (window as unknown as {
-                        webkitAudioContext: typeof AudioContext;
-                      }).webkitAudioContext;
-                    const ctx = new Ctx();
-                    ctx.resume().finally(() => ctx.close());
+                    if (
+                      "Notification" in window &&
+                      Notification.permission === "default"
+                    ) {
+                      await Notification.requestPermission();
+                    }
                   } catch {
                     /* ignore */
                   }
+
+                  // Best-effort wake lock
+                  try {
+                    const nav = navigator as Navigator & {
+                      wakeLock?: { request: (t: "screen") => Promise<WakeLockSentinel> };
+                    };
+                    if (nav.wakeLock) {
+                      wakeLockRef.current = await nav.wakeLock.request("screen");
+                    }
+                  } catch {
+                    /* ignore */
+                  }
+
                   toast.success(`Alarm armed for ${state.time}`);
+                } else {
+                  wakeLockRef.current?.release().catch(() => {});
+                  wakeLockRef.current = null;
                 }
               }}
             />
@@ -298,8 +443,9 @@ export function AlarmClock() {
         </div>
 
         <p className="mt-3 text-xs text-muted-foreground">
-          Generates your briefing {LEAD_MINUTES} minutes before the alarm, then plays it
-          automatically when you stop the alarm. Keep this tab open for the alarm to fire.
+          Generates your briefing {LEAD_MINUTES} min before the alarm, then plays it when
+          you stop the alarm. Keep this tab open — allow notifications when prompted so a
+          backgrounded tab can still alert you.
         </p>
       </div>
 
