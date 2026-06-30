@@ -65,17 +65,6 @@ function AuthPage() {
     nav({ to: redirectTo ?? "/" });
   };
 
-  const apple = async () => {
-    const result = await lovable.auth.signInWithOAuth("apple", {
-      redirect_uri: window.location.origin,
-    });
-    if (result.error) {
-      toast.error(result.error.message ?? "Apple sign-in failed");
-      return;
-    }
-    if (result.redirected) return;
-    nav({ to: redirectTo ?? "/" });
-  };
 
   return (
     <div className="relative flex min-h-screen items-center justify-center px-4">
@@ -136,9 +125,6 @@ function AuthPage() {
 
         <Button type="button" variant="secondary" onClick={google} className="w-full">
           Continue with Google
-        </Button>
-        <Button type="button" variant="secondary" onClick={apple} className="mt-2 w-full">
-           Continue with Apple
         </Button>
 
         <button
