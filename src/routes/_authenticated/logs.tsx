@@ -6,6 +6,8 @@ import { HudCard } from "@/components/hud/hud-card";
 import { BriefingAudioPlayer } from "@/components/BriefingAudioPlayer";
 import { Button } from "@/components/ui/button";
 import { deleteLog, listLogs } from "@/lib/briefing.functions";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export const Route = createFileRoute("/_authenticated/logs")({
   component: LogsPage,
