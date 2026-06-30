@@ -383,19 +383,21 @@ async function generateText(
   sections: Section[],
   customInstructions: string,
 ): Promise<{ text: string; model: string }> {
+  const hasCustom = !!customInstructions.trim();
   const prompt = [
     "You are Maverick, a personal morning briefing assistant.",
     `Subject name: ${name}.`,
     "Compose a concise, calm morning briefing using ONLY the data below.",
     "Open with a short greeting. You MUST mention EVERY data section listed below — do not skip any (weather, traffic, calendar, whoop, batteries, news). End with a single confident closer.",
-    "Lead the briefing with Weather and Traffic when present, then move into the day's agenda.",
-    "For the calendar: mention ALL events listed (both family and personal). If any event is tagged [FAMILY — prioritize], lead the calendar portion with it as top priority, then continue with the remaining personal events in order. Do not omit personal events.",
-    customInstructions.trim()
-      ? `User refinement instructions (follow these closely, they override default tone/style when in conflict):\n${customInstructions.trim()}`
+    "Default ordering: lead with Weather and Traffic, then the day's agenda. For the calendar, mention ALL events listed. Events tagged [FAMILY — prioritize] are only a default hint — if the user's custom instructions below say otherwise, IGNORE that tag and follow the user.",
+    "Use markdown: **bold** for names/times that matter, short bullet lists where useful. When you mention a news item, include its source in parentheses (e.g. \"(Reuters)\").",
+    hasCustom
+      ? `USER CUSTOM INSTRUCTIONS — these OVERRIDE every default rule above, including any family-priority hint:\n${customInstructions.trim()}`
       : "",
     "Data sections:",
     ...sections.map((s) => `- ${s.title}: ${s.content}`),
   ].filter(Boolean).join("\n");
+
 
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
