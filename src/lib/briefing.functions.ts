@@ -427,25 +427,20 @@ export const generateMorningBriefing = createServerFn({ method: "POST" })
         .eq("enabled", true),
     ]);
 
-    const name = profile?.display_name?.trim() || "Operator";
+    const name = profile?.display_name?.trim() || "there";
 
-    const sections: Section[] = [];
-    if (settings?.include_calendar) {
-      const s = collectCalendar();
-      if (s) sections.push(s);
-    }
-    if (settings?.include_whoop) {
-      const s = collectWhoop();
-      if (s) sections.push(s);
-    }
-    if (settings?.include_batteries) {
-      const s = collectBatteries();
-      if (s) sections.push(s);
-    }
-    if (settings?.include_roca_news) {
-      const s = collectRocaNews();
-      if (s) sections.push(s);
-    }
+    const { collectCalendar, collectWhoop, collectBatteries, collectRocaNews } =
+      await import("@/lib/data-sources.server");
+
+    const collectors: Promise<Section | null>[] = [];
+    if (settings?.include_calendar) collectors.push(collectCalendar(userId));
+    if (settings?.include_whoop) collectors.push(collectWhoop(userId));
+    if (settings?.include_batteries) collectors.push(collectBatteries(userId));
+    if (settings?.include_roca_news) collectors.push(collectRocaNews());
+    const sections = (await Promise.all(collectors)).filter(
+      (s): s is Section => s !== null,
+    );
+
 
     const apiKey = process.env.LOVABLE_API_KEY;
     let text: string;
