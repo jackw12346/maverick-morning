@@ -18,7 +18,7 @@ const Device = z.object({
 //   { token, name, level, charging }
 const Body = z
   .object({
-    token: z.string().uuid(),
+    token: z.string().trim().min(8).max(100),
     devices: z.array(Device).min(1).max(20).optional(),
     name: z.string().trim().min(1).max(60).optional(),
     level: z.coerce.number().int().min(0).max(100).optional(),
