@@ -246,9 +246,14 @@ function PrivacyPage() {
       <footer className="border-t border-border/60">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-6 text-xs text-muted-foreground">
           <span>&copy; {new Date().getFullYear()} Maverick</span>
-          <Link to="/privacy" className="hover:text-foreground">
-            Privacy
-          </Link>
+          <div className="flex gap-4">
+            <Link to="/privacy" className="hover:text-foreground">
+              Privacy
+            </Link>
+            <Link to="/support" className="hover:text-foreground">
+              Support
+            </Link>
+          </div>
         </div>
       </footer>
     </div>
