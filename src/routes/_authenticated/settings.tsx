@@ -6,9 +6,12 @@ import {
   CalendarDays,
   HeartPulse,
   Newspaper,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { HudCard } from "@/components/hud/hud-card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
