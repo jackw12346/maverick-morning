@@ -13,15 +13,15 @@ export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async ({ location }) => {
     const { data } = await supabase.auth.getUser();
     if (!data.user) {
-      throw redirect({ to: "/auth", search: { redirect: location.href } });
+      throw redirect({ to: "/signin", search: { redirect: location.href } });
     }
     return { user: data.user };
   },
   component: AuthenticatedLayout,
 });
 
-const nav: { to: "/" | "/settings" | "/integrations" | "/logs"; label: string; icon: typeof LayoutDashboard; end?: boolean }[] = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
+const nav: { to: "/dashboard" | "/settings" | "/integrations" | "/logs"; label: string; icon: typeof LayoutDashboard; end?: boolean }[] = [
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/settings", label: "Configuration", icon: SlidersHorizontal },
   { to: "/integrations", label: "Integrations", icon: Cable },
   { to: "/logs", label: "Logs", icon: ListOrdered },
@@ -45,7 +45,7 @@ function AuthenticatedLayout() {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    router.navigate({ to: "/auth" });
+    router.navigate({ to: "/signin" });
   };
 
   const navContent = (
