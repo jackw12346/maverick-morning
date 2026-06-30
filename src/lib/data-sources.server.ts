@@ -88,20 +88,15 @@ export async function collectWeather(location: string): Promise<Section | null> 
   };
 }
 
-// ---------- Traffic (OpenStreetMap / OSRM, no API key required) ----------
-// Uses Nominatim for address geocoding and OSRM for routing. Free, no key, no live traffic.
+// ---------- Traffic (Google Maps via Firecrawl scrape — live traffic, personal use) ----------
+// Scrapes the public Google Maps directions page through Firecrawl so we get
+// the "with traffic" drive time without using the paid Distance Matrix API.
 
-async function nominatimGeocode(address: string): Promise<{ lat: number; lon: number } | null> {
-  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`;
-  const res = await fetch(url, {
-    headers: { "User-Agent": "Maverick-Briefing/1.0" },
-    signal: AbortSignal.timeout(8000),
-  });
-  if (!res.ok) return null;
-  const j = (await res.json()) as Array<{ lat: string; lon: string }>;
-  const r = j[0];
-  if (!r) return null;
-  return { lat: parseFloat(r.lat), lon: parseFloat(r.lon) };
+function parseDurationToMin(s: string): number | null {
+  const hr = s.match(/(\d+)\s*(?:h|hr|hour)s?/i);
+  const mn = s.match(/(\d+)\s*min/i);
+  if (!hr && !mn) return null;
+  return (hr ? parseInt(hr[1], 10) * 60 : 0) + (mn ? parseInt(mn[1], 10) : 0);
 }
 
 export async function collectTraffic(origin: string, destination: string): Promise<Section | null> {
@@ -114,38 +109,67 @@ export async function collectTraffic(origin: string, destination: string): Promi
       content: "Set your commute origin and destination in Configuration.",
     };
   }
+  const apiKey = process.env.FIRECRAWL_API_KEY;
+  if (!apiKey) {
+    return { id: "traffic", title: "Traffic", content: "Firecrawl is not configured." };
+  }
   try {
-    const [originGeo, destGeo] = await Promise.all([
-      nominatimGeocode(o),
-      nominatimGeocode(dst),
-    ]);
-    if (!originGeo || !destGeo) {
+    const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(o)}&destination=${encodeURIComponent(dst)}&travelmode=driving`;
+    const res = await fetch("https://api.firecrawl.dev/v2/scrape", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        url: mapsUrl,
+        formats: ["markdown"],
+        onlyMainContent: false,
+        waitFor: 5000,
+        location: { country: "US", languages: ["en"] },
+      }),
+      signal: AbortSignal.timeout(45000),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error("[traffic] firecrawl", res.status, body.slice(0, 300));
+      return { id: "traffic", title: "Traffic", content: "Traffic lookup failed (scrape error)." };
+    }
+    const j = (await res.json()) as {
+      success?: boolean;
+      data?: { markdown?: string };
+      markdown?: string;
+    };
+    const md = j.data?.markdown ?? j.markdown ?? "";
+    if (!md) {
+      return { id: "traffic", title: "Traffic", content: "Traffic lookup returned no data." };
+    }
+
+    const candidates: number[] = [];
+    const re = /(\d+\s*(?:h|hr|hour)s?\s*\d+\s*min|\d+\s*(?:h|hr|hour)s?|\d+\s*min)/gi;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(md)) !== null) {
+      const mins = parseDurationToMin(m[1]);
+      if (mins && mins >= 1 && mins <= 60 * 24) candidates.push(mins);
+    }
+    const distMatch = md.match(/(\d+(?:\.\d+)?)\s*(mi|km)\b/i);
+
+    if (candidates.length === 0) {
       return {
         id: "traffic",
         title: "Traffic",
-        content: `Couldn't locate one or both addresses: ${o} → ${dst}. Try a more specific address or city.`,
+        content: `Couldn't read drive time from Google Maps for ${o} → ${dst}. Try a more specific address.`,
       };
     }
-    const routeUrl = `https://router.project-osrm.org/route/v1/driving/${originGeo.lon},${originGeo.lat};${destGeo.lon},${destGeo.lat}?overview=false`;
-    const res = await fetch(routeUrl, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) {
-      console.error("[traffic]", res.status, await res.text().catch(() => ""));
-      return { id: "traffic", title: "Traffic", content: "Traffic routing service unavailable." };
-    }
-    const j = (await res.json()) as {
-      code: string;
-      routes?: Array<{ distance: number; duration: number }>;
-    };
-    if (j.code !== "Ok" || !j.routes?.[0]) {
-      return { id: "traffic", title: "Traffic", content: `Couldn't route ${o} → ${dst}.` };
-    }
-    const route = j.routes[0];
-    const durationMin = Math.round(route.duration / 60);
-    const distanceMi = (route.distance / 1609.34).toFixed(1);
+    const driveMin = candidates[0];
+    const hrs = Math.floor(driveMin / 60);
+    const mins = driveMin % 60;
+    const pretty = hrs > 0 ? `${hrs} h ${mins} min` : `${mins} min`;
+    const distStr = distMatch ? ` (${distMatch[1]} ${distMatch[2]})` : "";
     return {
       id: "traffic",
       title: "Traffic",
-      content: `${o} → ${dst}: about ${durationMin} min (${distanceMi} mi). This is a free route estimate; live traffic delays are not included.`,
+      content: `${o} → ${dst}: about ${pretty}${distStr} with current traffic (Google Maps).`,
     };
   } catch (e) {
     console.error("[traffic]", e);
