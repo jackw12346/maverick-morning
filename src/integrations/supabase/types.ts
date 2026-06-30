@@ -47,36 +47,51 @@ export type Database = {
           include_batteries: boolean
           include_calendar: boolean
           include_roca_news: boolean
+          include_traffic: boolean
+          include_weather: boolean
           include_whoop: boolean
           news_topics: string
           text_to_speech_enabled: boolean
+          traffic_destination: string
+          traffic_origin: string
           updated_at: string
           user_id: string
           voice: string
+          weather_location: string
         }
         Insert: {
           custom_instructions?: string
           include_batteries?: boolean
           include_calendar?: boolean
           include_roca_news?: boolean
+          include_traffic?: boolean
+          include_weather?: boolean
           include_whoop?: boolean
           news_topics?: string
           text_to_speech_enabled?: boolean
+          traffic_destination?: string
+          traffic_origin?: string
           updated_at?: string
           user_id: string
           voice?: string
+          weather_location?: string
         }
         Update: {
           custom_instructions?: string
           include_batteries?: boolean
           include_calendar?: boolean
           include_roca_news?: boolean
+          include_traffic?: boolean
+          include_weather?: boolean
           include_whoop?: boolean
           news_topics?: string
           text_to_speech_enabled?: boolean
+          traffic_destination?: string
+          traffic_origin?: string
           updated_at?: string
           user_id?: string
           voice?: string
+          weather_location?: string
         }
         Relationships: []
       }

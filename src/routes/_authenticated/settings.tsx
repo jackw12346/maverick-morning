@@ -4,6 +4,8 @@ import {
   AudioLines,
   BatteryCharging,
   CalendarDays,
+  Car,
+  CloudSun,
   HeartPulse,
   Newspaper,
   Sparkles,
@@ -30,6 +32,18 @@ export const Route = createFileRoute("/_authenticated/settings")({
 });
 
 const toggles = [
+  {
+    key: "include_weather",
+    label: "Weather",
+    desc: "Today's forecast for your location.",
+    icon: CloudSun,
+  },
+  {
+    key: "include_traffic",
+    label: "Traffic",
+    desc: "Live drive time from your commute origin to destination.",
+    icon: Car,
+  },
   {
     key: "include_calendar",
     label: "Google Calendar",
@@ -69,6 +83,11 @@ function SettingsPage() {
     include_whoop: boolean;
     include_batteries: boolean;
     include_roca_news: boolean;
+    include_weather: boolean;
+    include_traffic: boolean;
+    weather_location: string;
+    traffic_origin: string;
+    traffic_destination: string;
     news_topics: string;
     custom_instructions: string;
     text_to_speech_enabled: boolean;
@@ -122,6 +141,33 @@ function SettingsPage() {
                 </label>
               );
             })}
+            {data?.include_weather ? (
+              <TextSettingInput
+                label="Weather location"
+                hint="City or 'City, State'. Example: Austin, TX or Brooklyn, NY."
+                placeholder="Austin, TX"
+                initial={data.weather_location ?? ""}
+                onSave={(v) => mut.mutate({ weather_location: v })}
+              />
+            ) : null}
+            {data?.include_traffic ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <TextSettingInput
+                  label="Commute origin"
+                  hint="Home address or area."
+                  placeholder="123 Main St, Austin, TX"
+                  initial={data.traffic_origin ?? ""}
+                  onSave={(v) => mut.mutate({ traffic_origin: v })}
+                />
+                <TextSettingInput
+                  label="Commute destination"
+                  hint="Office or first stop."
+                  placeholder="500 Congress Ave, Austin, TX"
+                  initial={data.traffic_destination ?? ""}
+                  onSave={(v) => mut.mutate({ traffic_destination: v })}
+                />
+              </div>
+            ) : null}
             {data?.include_roca_news ? <NewsTopicsInput initial={data.news_topics ?? ""} onSave={(v) => mut.mutate({ news_topics: v })} /> : null}
           </div>
         )}
@@ -251,3 +297,33 @@ function CustomInstructionsInput({
     </div>
   );
 }
+
+function TextSettingInput({
+  label,
+  hint,
+  placeholder,
+  initial,
+  onSave,
+}: {
+  label: string;
+  hint?: string;
+  placeholder?: string;
+  initial: string;
+  onSave: (v: string) => void;
+}) {
+  const [value, setValue] = useState(initial);
+  useEffect(() => setValue(initial), [initial]);
+  return (
+    <div className="rounded-md border border-border/60 bg-background/40 p-3">
+      <Label className="text-sm font-medium">{label}</Label>
+      {hint && <div className="text-xs text-muted-foreground mb-2">{hint}</div>}
+      <Input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => value !== initial && onSave(value)}
+        placeholder={placeholder}
+      />
+    </div>
+  );
+}
+

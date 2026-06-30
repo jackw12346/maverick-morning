@@ -62,6 +62,11 @@ export const updateSettings = createServerFn({ method: "POST" })
         include_whoop: z.boolean().optional(),
         include_batteries: z.boolean().optional(),
         include_roca_news: z.boolean().optional(),
+        include_weather: z.boolean().optional(),
+        include_traffic: z.boolean().optional(),
+        weather_location: z.string().max(200).optional(),
+        traffic_origin: z.string().max(200).optional(),
+        traffic_destination: z.string().max(200).optional(),
         news_topics: z.string().max(500).optional(),
         custom_instructions: z.string().max(2000).optional(),
         text_to_speech_enabled: z.boolean().optional(),
@@ -460,12 +465,15 @@ export const generateMorningBriefing = createServerFn({ method: "POST" })
 
     const name = profile?.display_name?.trim() || "there";
 
-    const { collectCalendar, collectWhoop, collectBatteries, collectTailoredNews } =
+    const { collectCalendar, collectWhoop, collectBatteries, collectTailoredNews, collectWeather, collectTraffic } =
       await import("@/lib/data-sources.server");
 
     const apiKey = process.env.LOVABLE_API_KEY;
 
     const collectors: Promise<Section | null>[] = [];
+    if (settings?.include_weather) collectors.push(collectWeather(settings?.weather_location ?? ""));
+    if (settings?.include_traffic)
+      collectors.push(collectTraffic(settings?.traffic_origin ?? "", settings?.traffic_destination ?? ""));
     if (settings?.include_calendar) collectors.push(collectCalendar(userId));
     if (settings?.include_whoop) collectors.push(collectWhoop(userId));
     if (settings?.include_batteries) collectors.push(collectBatteries(userId));
