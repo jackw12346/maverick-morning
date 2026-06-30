@@ -16,7 +16,7 @@ export const Route = createFileRoute("/signin")({
   validateSearch: (s) => search.parse(s),
   beforeLoad: async ({ search }) => {
     const { data } = await supabase.auth.getUser();
-    if (data.user) throw redirect({ to: search.redirect ?? "/" });
+    if (data.user) throw redirect({ to: search.redirect ?? "/dashboard" });
   },
   component: AuthPage,
 });
@@ -45,7 +45,7 @@ function AuthPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       }
-      nav({ to: redirectTo ?? "/" });
+      nav({ to: redirectTo ?? "/dashboard" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Authentication failed");
     } finally {
@@ -62,7 +62,7 @@ function AuthPage() {
       return;
     }
     if (result.redirected) return;
-    nav({ to: redirectTo ?? "/" });
+    nav({ to: redirectTo ?? "/dashboard" });
   };
 
 
