@@ -1,0 +1,1 @@
+ALTER TABLE public.briefing_settings ADD COLUMN IF NOT EXISTS news_topics text NOT NULL DEFAULT '';

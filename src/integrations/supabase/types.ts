@@ -47,6 +47,7 @@ export type Database = {
           include_calendar: boolean
           include_roca_news: boolean
           include_whoop: boolean
+          news_topics: string
           text_to_speech_enabled: boolean
           updated_at: string
           user_id: string
@@ -57,6 +58,7 @@ export type Database = {
           include_calendar?: boolean
           include_roca_news?: boolean
           include_whoop?: boolean
+          news_topics?: string
           text_to_speech_enabled?: boolean
           updated_at?: string
           user_id: string
@@ -67,6 +69,7 @@ export type Database = {
           include_calendar?: boolean
           include_roca_news?: boolean
           include_whoop?: boolean
+          news_topics?: string
           text_to_speech_enabled?: boolean
           updated_at?: string
           user_id?: string
