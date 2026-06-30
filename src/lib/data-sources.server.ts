@@ -17,9 +17,9 @@ export async function collectCalendar(userId: string): Promise<Section | null> {
     .eq("id", userId)
     .maybeSingle();
 
-  // Fetch all calendars and pull events from each (not just "primary").
+  // Fetch every readable calendar, including hidden/unchecked calendars such as Work.
   const listResPromise = fetch(
-    "https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=reader",
+    "https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=reader&showHidden=true",
     { headers: { Authorization: `Bearer ${token}` } },
   );
   const [{ data: profile }, listRes] = await Promise.all([profileQuery, listResPromise]);
@@ -42,9 +42,7 @@ export async function collectCalendar(userId: string): Promise<Section | null> {
       timeZone?: string;
     }>;
   };
-  const calendars = (listJson.items ?? []).filter(
-    (c) => c.selected !== false,
-  );
+  const calendars = listJson.items ?? [];
 
   const primaryCalendar = calendars.find((c) => c.primary) ?? calendars[0];
   const tz = primaryCalendar?.timeZone || profile?.timezone || "UTC";
@@ -77,7 +75,13 @@ export async function collectCalendar(userId: string): Promise<Section | null> {
       const j = (await r.json()) as { items?: any[] };
       const family = isFamilyCalendar(c);
       const calName = c.summaryOverride ?? c.summary ?? "";
-      return (j.items ?? []).map((e) => ({ ...e, __family: family, __calName: calName }));
+      return (j.items ?? []).map((e) => ({
+        ...e,
+        __calendarId: c.id,
+        __family: family,
+        __calName: calName,
+        __primary: !!c.primary,
+      }));
     }),
   );
   const allItems = results.flat();
@@ -86,7 +90,7 @@ export async function collectCalendar(userId: string): Promise<Section | null> {
   const events = allItems
     .filter((e: any) => {
       if (!e?.summary || e.status === "cancelled") return false;
-      const key = `${e.id}-${e.start?.dateTime ?? e.start?.date}`;
+      const key = `${e.__calendarId}-${e.id}-${e.start?.dateTime ?? e.start?.date}`;
       if (seen.has(key)) return false;
       seen.add(key);
       if (e.start?.date) return e.start.date === todayKey;
@@ -108,7 +112,7 @@ export async function collectCalendar(userId: string): Promise<Section | null> {
       content: "No events on the calendar today. The day is yours.",
     };
   }
-  const lines = events.slice(0, 8).map((e: any) => {
+  const lines = events.slice(0, 25).map((e: any) => {
     const when = e.start?.dateTime
       ? new Date(e.start.dateTime).toLocaleTimeString("en-US", {
           hour: "numeric",
@@ -116,8 +120,9 @@ export async function collectCalendar(userId: string): Promise<Section | null> {
           timeZone: tz,
         })
       : "All day";
+    const calendarLabel = !e.__primary && e.__calName ? ` [${e.__calName}]` : "";
     const tag = e.__family ? " [FAMILY — prioritize]" : "";
-    return `${when} ${e.summary}${tag}`;
+    return `${when} ${e.summary}${calendarLabel}${tag}`;
   });
   const familyCount = events.filter((e: any) => e.__family).length;
   const preamble = familyCount > 0
