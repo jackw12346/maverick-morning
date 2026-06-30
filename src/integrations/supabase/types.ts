@@ -14,7 +14,159 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      briefing_logs: {
+        Row: {
+          audio_url: string | null
+          briefing_text: string
+          created_at: string
+          id: string
+          metadata: Json
+          user_id: string
+        }
+        Insert: {
+          audio_url?: string | null
+          briefing_text: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          user_id: string
+        }
+        Update: {
+          audio_url?: string | null
+          briefing_text?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
+      briefing_settings: {
+        Row: {
+          include_batteries: boolean
+          include_calendar: boolean
+          include_roca_news: boolean
+          include_whoop: boolean
+          text_to_speech_enabled: boolean
+          updated_at: string
+          user_id: string
+          voice: string
+        }
+        Insert: {
+          include_batteries?: boolean
+          include_calendar?: boolean
+          include_roca_news?: boolean
+          include_whoop?: boolean
+          text_to_speech_enabled?: boolean
+          updated_at?: string
+          user_id: string
+          voice?: string
+        }
+        Update: {
+          include_batteries?: boolean
+          include_calendar?: boolean
+          include_roca_news?: boolean
+          include_whoop?: boolean
+          text_to_speech_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+          voice?: string
+        }
+        Relationships: []
+      }
+      integration_tokens: {
+        Row: {
+          access_token: string | null
+          expires_at: string | null
+          id: string
+          metadata: Json
+          provider: string
+          refresh_token: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token?: string | null
+          expires_at?: string | null
+          id?: string
+          metadata?: Json
+          provider: string
+          refresh_token?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string | null
+          expires_at?: string | null
+          id?: string
+          metadata?: Json
+          provider?: string
+          refresh_token?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+          timezone: string
+          updated_at: string
+          wake_time: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id: string
+          timezone?: string
+          updated_at?: string
+          wake_time?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          timezone?: string
+          updated_at?: string
+          wake_time?: string
+        }
+        Relationships: []
+      }
+      smart_home_webhooks: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          label: string
+          target: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          label: string
+          target?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          label?: string
+          target?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
