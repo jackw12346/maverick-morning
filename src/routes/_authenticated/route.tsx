@@ -42,7 +42,7 @@ function AuthenticatedLayout() {
   };
 
   return (
-    <div className="hud-grid min-h-screen">
+    <div className="min-h-screen">
       <div className="mx-auto flex min-h-screen max-w-[1400px] gap-6 px-6 py-6">
         {/* sidebar */}
         <aside className="sticky top-6 hidden h-[calc(100vh-3rem)] w-60 shrink-0 flex-col rounded-lg border border-border/60 bg-card/50 p-4 backdrop-blur md:flex">
