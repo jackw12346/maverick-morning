@@ -261,8 +261,8 @@ function SettingsPage() {
                 </Select>
               </div>
             </div>
-            </div>
           </div>
+
         )}
       </HudCard>
     </div>
