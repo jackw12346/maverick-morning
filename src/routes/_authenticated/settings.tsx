@@ -83,6 +83,11 @@ function SettingsPage() {
     include_whoop: boolean;
     include_batteries: boolean;
     include_roca_news: boolean;
+    include_weather: boolean;
+    include_traffic: boolean;
+    weather_location: string;
+    traffic_origin: string;
+    traffic_destination: string;
     news_topics: string;
     custom_instructions: string;
     text_to_speech_enabled: boolean;
