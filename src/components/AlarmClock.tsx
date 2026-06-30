@@ -316,6 +316,48 @@ export function AlarmClock() {
     };
   }, [state.enabled, state.time, ringing, generate, startRinging, playAlarmTone]);
 
+  // Native iOS: schedule the OS-level daily local notification so the alarm
+  // fires even with the app closed (within the iOS notification sound rules).
+  useEffect(() => {
+    if (!isNative()) return;
+    if (state.enabled) {
+      void scheduleDailyAlarm(state.time);
+    } else {
+      void cancelDailyAlarm();
+    }
+  }, [state.enabled, state.time]);
+
+  // Native iOS: react to the user tapping the alarm notification by jumping
+  // straight into the briefing playback flow.
+  useEffect(() => {
+    if (!isNative()) return;
+    const offTap = onNotificationAction({
+      onAlarm: () => {
+        startRinging();
+      },
+      onPregen: () => {
+        if (!generate.isPending) generate.mutate();
+      },
+    });
+    const offResume = onAppResume(() => {
+      // Catch the case where the pre-gen notification fired while the app
+      // was suspended — kick off generation on resume if we're inside the
+      // lead window.
+      if (!state.enabled || ringing || generate.isPending) return;
+      const target = nextOccurrence(state.time).getTime();
+      const leadAt = target - LEAD_MINUTES * 60 * 1000;
+      const t = Date.now();
+      if (t >= leadAt && t < target && preGeneratedFor.current !== target) {
+        preGeneratedFor.current = target;
+        generate.mutate();
+      }
+    });
+    return () => {
+      offTap();
+      offResume();
+    };
+  }, [state.enabled, state.time, ringing, generate, startRinging]);
+
   async function stopRinging() {
     setRinging(false);
     const el = beepAudioRef.current;
