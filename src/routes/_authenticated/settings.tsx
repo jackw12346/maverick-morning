@@ -297,3 +297,33 @@ function CustomInstructionsInput({
     </div>
   );
 }
+
+function TextSettingInput({
+  label,
+  hint,
+  placeholder,
+  initial,
+  onSave,
+}: {
+  label: string;
+  hint?: string;
+  placeholder?: string;
+  initial: string;
+  onSave: (v: string) => void;
+}) {
+  const [value, setValue] = useState(initial);
+  useEffect(() => setValue(initial), [initial]);
+  return (
+    <div className="rounded-md border border-border/60 bg-background/40 p-3">
+      <Label className="text-sm font-medium">{label}</Label>
+      {hint && <div className="text-xs text-muted-foreground mb-2">{hint}</div>}
+      <Input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => value !== initial && onSave(value)}
+        placeholder={placeholder}
+      />
+    </div>
+  );
+}
+
