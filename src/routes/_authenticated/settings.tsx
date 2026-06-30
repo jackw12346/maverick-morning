@@ -267,7 +267,71 @@ function SettingsPage() {
 
         )}
       </HudCard>
+
+      <HudCard
+        eyebrow="Account"
+        title="Change password"
+        actions={<KeyRound className="h-4 w-4 text-hud" />}
+      >
+        <ChangePasswordForm />
+      </HudCard>
     </div>
+  );
+}
+
+function ChangePasswordForm() {
+  const [pw, setPw] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (pw.length < 6) return toast.error("Password must be at least 6 characters");
+    if (pw !== confirm) return toast.error("Passwords do not match");
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: pw });
+      if (error) throw error;
+      toast.success("Password updated");
+      setPw("");
+      setConfirm("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Update failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="grid gap-3 rounded-md border border-border/60 bg-background/40 p-3 sm:grid-cols-2">
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">New password</Label>
+        <Input
+          type="password"
+          value={pw}
+          onChange={(e) => setPw(e.target.value)}
+          autoComplete="new-password"
+          minLength={6}
+          required
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Confirm password</Label>
+        <Input
+          type="password"
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          autoComplete="new-password"
+          minLength={6}
+          required
+        />
+      </div>
+      <div className="sm:col-span-2 flex justify-end">
+        <Button type="submit" disabled={loading}>
+          {loading ? "Updating…" : "Update password"}
+        </Button>
+      </div>
+    </form>
   );
 }
 
