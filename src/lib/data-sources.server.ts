@@ -11,43 +11,19 @@ export async function collectCalendar(userId: string): Promise<Section | null> {
   });
   if (!token) return null;
 
-  // Use the user's timezone to compute "today" instead of server UTC.
-  const { data: profile } = await supabaseAdmin
+  const profileQuery = supabaseAdmin
     .from("profiles")
     .select("timezone")
     .eq("id", userId)
     .maybeSingle();
-  const tz = profile?.timezone || "UTC";
-
-  // Compute start-of-day in the user's tz, then end = +24h.
-  const now = new Date();
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: tz,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).formatToParts(now);
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "00";
-  // Local wall clock in tz
-  const y = get("year"), m = get("month"), d = get("day");
-  const h = parseInt(get("hour"), 10);
-  const mi = parseInt(get("minute"), 10);
-  const s = parseInt(get("second"), 10);
-  // Offset between tz wall clock and UTC, in ms
-  const offsetMs =
-    Date.UTC(parseInt(y), parseInt(m) - 1, parseInt(d), h, mi, s) - now.getTime();
-  const start = new Date(Date.UTC(parseInt(y), parseInt(m) - 1, parseInt(d)) - offsetMs);
-  const end = new Date(start.getTime() + 48 * 60 * 60 * 1000);
 
   // Fetch all calendars and pull events from each (not just "primary").
-  const listRes = await fetch(
+  const listResPromise = fetch(
     "https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=reader",
     { headers: { Authorization: `Bearer ${token}` } },
   );
+  const [{ data: profile }, listRes] = await Promise.all([profileQuery, listResPromise]);
+
   if (!listRes.ok) {
     console.error("[calendar list]", listRes.status, await listRes.text().catch(() => ""));
     return {
@@ -57,18 +33,30 @@ export async function collectCalendar(userId: string): Promise<Section | null> {
     };
   }
   const listJson = (await listRes.json()) as {
-    items?: Array<{ id: string; selected?: boolean; primary?: boolean }>;
+    items?: Array<{ id: string; selected?: boolean; primary?: boolean; timeZone?: string }>;
   };
   const calendars = (listJson.items ?? []).filter(
     (c) => c.selected !== false,
   );
+
+  const primaryCalendar = calendars.find((c) => c.primary) ?? calendars[0];
+  // The profile timezone starts as UTC by default, which caused local Google Calendar
+  // events to be filtered against the wrong day. Prefer Google's primary calendar tz.
+  const tz = primaryCalendar?.timeZone || profile?.timezone || "UTC";
+  const now = new Date();
+  const todayKey = dateKeyInTimeZone(now, tz);
+
+  // Query a deliberately wide window, then filter by the calendar-local date key.
+  // This avoids UTC boundary misses and handles all-day events correctly.
+  const start = new Date(now.getTime() - 36 * 60 * 60 * 1000);
+  const end = new Date(now.getTime() + 84 * 60 * 60 * 1000);
 
   const params = new URLSearchParams({
     timeMin: start.toISOString(),
     timeMax: end.toISOString(),
     singleEvents: "true",
     orderBy: "startTime",
-    maxResults: "10",
+    maxResults: "50",
   });
 
   const results = await Promise.all(
@@ -84,22 +72,17 @@ export async function collectCalendar(userId: string): Promise<Section | null> {
   );
   const allItems = results.flat();
 
-  // Dedupe and sort by start time, filter to events within tz "today" window
-  const todayEnd = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  // Dedupe and sort by start time, filter to events on the calendar-local "today".
   const seen = new Set<string>();
   const events = allItems
     .filter((e: any) => {
-      if (!e?.summary) return false;
+      if (!e?.summary || e.status === "cancelled") return false;
       const key = `${e.id}-${e.start?.dateTime ?? e.start?.date}`;
       if (seen.has(key)) return false;
       seen.add(key);
-      const startTime = e.start?.dateTime
-        ? new Date(e.start.dateTime)
-        : e.start?.date
-          ? new Date(e.start.date + "T00:00:00Z")
-          : null;
-      if (!startTime) return false;
-      return startTime >= start && startTime < todayEnd;
+      if (e.start?.date) return e.start.date === todayKey;
+      if (!e.start?.dateTime) return false;
+      return dateKeyInTimeZone(new Date(e.start.dateTime), tz) === todayKey;
     })
     .sort((a: any, b: any) => {
       const at = new Date(a.start?.dateTime ?? a.start?.date ?? 0).getTime();
@@ -129,6 +112,17 @@ export async function collectCalendar(userId: string): Promise<Section | null> {
     title: "Calendar",
     content: `${events.length} event${events.length === 1 ? "" : "s"} today: ${lines.join("; ")}.`,
   };
+}
+
+function dateKeyInTimeZone(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
 
