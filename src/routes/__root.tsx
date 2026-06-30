@@ -18,7 +18,7 @@ function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="mono text-7xl font-bold text-hud">404</h1>
+        <h1 className="font-display text-7xl font-bold text-primary">404</h1>
         <h2 className="mt-4 text-xl font-semibold">Signal lost</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           The requested resource is not in this sector.
