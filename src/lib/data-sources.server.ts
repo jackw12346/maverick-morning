@@ -66,9 +66,9 @@ export async function collectWhoop(userId: string): Promise<Section | null> {
   const token = await getValidAccessToken({ userId, provider: "whoop" });
   if (!token) return null;
 
-  // Latest recovery (Whoop returns most recent first by default).
+  // Latest recovery (Whoop v2; v1 was deprecated).
   const res = await fetch(
-    "https://api.prod.whoop.com/developer/v1/recovery?limit=1",
+    "https://api.prod.whoop.com/developer/v2/recovery?limit=1",
     { headers: { Authorization: `Bearer ${token}` } },
   );
   if (!res.ok) {
