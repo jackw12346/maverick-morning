@@ -15,6 +15,9 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/logs'
 import { Route as AuthenticatedIntegrationsRouteImport } from './routes/_authenticated/integrations'
+import { Route as ApiPublicIngestBatteriesRouteImport } from './routes/api/public/ingest/batteries'
+import { Route as ApiPublicOauthWhoopCallbackRouteImport } from './routes/api/public/oauth/whoop/callback'
+import { Route as ApiPublicOauthGoogleCallbackRouteImport } from './routes/api/public/oauth/google/callback'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -46,6 +49,24 @@ const AuthenticatedIntegrationsRoute =
     path: '/integrations',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicIngestBatteriesRoute =
+  ApiPublicIngestBatteriesRouteImport.update({
+    id: '/api/public/ingest/batteries',
+    path: '/api/public/ingest/batteries',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicOauthWhoopCallbackRoute =
+  ApiPublicOauthWhoopCallbackRouteImport.update({
+    id: '/api/public/oauth/whoop/callback',
+    path: '/api/public/oauth/whoop/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicOauthGoogleCallbackRoute =
+  ApiPublicOauthGoogleCallbackRouteImport.update({
+    id: '/api/public/oauth/google/callback',
+    path: '/api/public/oauth/google/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -53,6 +74,9 @@ export interface FileRoutesByFullPath {
   '/integrations': typeof AuthenticatedIntegrationsRoute
   '/logs': typeof AuthenticatedLogsRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/api/public/ingest/batteries': typeof ApiPublicIngestBatteriesRoute
+  '/api/public/oauth/google/callback': typeof ApiPublicOauthGoogleCallbackRoute
+  '/api/public/oauth/whoop/callback': typeof ApiPublicOauthWhoopCallbackRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -60,6 +84,9 @@ export interface FileRoutesByTo {
   '/logs': typeof AuthenticatedLogsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/': typeof AuthenticatedIndexRoute
+  '/api/public/ingest/batteries': typeof ApiPublicIngestBatteriesRoute
+  '/api/public/oauth/google/callback': typeof ApiPublicOauthGoogleCallbackRoute
+  '/api/public/oauth/whoop/callback': typeof ApiPublicOauthWhoopCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -69,12 +96,31 @@ export interface FileRoutesById {
   '/_authenticated/logs': typeof AuthenticatedLogsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/api/public/ingest/batteries': typeof ApiPublicIngestBatteriesRoute
+  '/api/public/oauth/google/callback': typeof ApiPublicOauthGoogleCallbackRoute
+  '/api/public/oauth/whoop/callback': typeof ApiPublicOauthWhoopCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/integrations' | '/logs' | '/settings'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/integrations'
+    | '/logs'
+    | '/settings'
+    | '/api/public/ingest/batteries'
+    | '/api/public/oauth/google/callback'
+    | '/api/public/oauth/whoop/callback'
   fileRoutesByTo: FileRoutesByTo
-  to: '/auth' | '/integrations' | '/logs' | '/settings' | '/'
+  to:
+    | '/auth'
+    | '/integrations'
+    | '/logs'
+    | '/settings'
+    | '/'
+    | '/api/public/ingest/batteries'
+    | '/api/public/oauth/google/callback'
+    | '/api/public/oauth/whoop/callback'
   id:
     | '__root__'
     | '/_authenticated'
@@ -83,11 +129,17 @@ export interface FileRouteTypes {
     | '/_authenticated/logs'
     | '/_authenticated/settings'
     | '/_authenticated/'
+    | '/api/public/ingest/batteries'
+    | '/api/public/oauth/google/callback'
+    | '/api/public/oauth/whoop/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicIngestBatteriesRoute: typeof ApiPublicIngestBatteriesRoute
+  ApiPublicOauthGoogleCallbackRoute: typeof ApiPublicOauthGoogleCallbackRoute
+  ApiPublicOauthWhoopCallbackRoute: typeof ApiPublicOauthWhoopCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -134,6 +186,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedIntegrationsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/ingest/batteries': {
+      id: '/api/public/ingest/batteries'
+      path: '/api/public/ingest/batteries'
+      fullPath: '/api/public/ingest/batteries'
+      preLoaderRoute: typeof ApiPublicIngestBatteriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/oauth/whoop/callback': {
+      id: '/api/public/oauth/whoop/callback'
+      path: '/api/public/oauth/whoop/callback'
+      fullPath: '/api/public/oauth/whoop/callback'
+      preLoaderRoute: typeof ApiPublicOauthWhoopCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/oauth/google/callback': {
+      id: '/api/public/oauth/google/callback'
+      path: '/api/public/oauth/google/callback'
+      fullPath: '/api/public/oauth/google/callback'
+      preLoaderRoute: typeof ApiPublicOauthGoogleCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -157,6 +230,9 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicIngestBatteriesRoute: ApiPublicIngestBatteriesRoute,
+  ApiPublicOauthGoogleCallbackRoute: ApiPublicOauthGoogleCallbackRoute,
+  ApiPublicOauthWhoopCallbackRoute: ApiPublicOauthWhoopCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
