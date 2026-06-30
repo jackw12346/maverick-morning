@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 
 const search = z.object({ redirect: z.string().optional() });
 
-export const Route = createFileRoute("/auth")({
+export const Route = createFileRoute("/signin")({
   ssr: false,
   validateSearch: (s) => search.parse(s),
   beforeLoad: async ({ search }) => {

@@ -10,13 +10,13 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SupportRouteImport } from './routes/support'
+import { Route as SigninRouteImport } from './routes/signin'
 import { Route as PrivacyRouteImport } from './routes/privacy'
-import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
-import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/logs'
 import { Route as AuthenticatedIntegrationsRouteImport } from './routes/_authenticated/integrations'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as ApiPublicIngestBatteriesRouteImport } from './routes/api/public/ingest/batteries'
 import { Route as ApiPublicOauthWhoopCallbackRouteImport } from './routes/api/public/oauth/whoop/callback'
 import { Route as ApiPublicOauthGoogleCallbackRouteImport } from './routes/api/public/oauth/google/callback'
@@ -26,24 +26,19 @@ const SupportRoute = SupportRouteImport.update({
   path: '/support',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SigninRoute = SigninRouteImport.update({
+  id: '/signin',
+  path: '/signin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
@@ -61,6 +56,11 @@ const AuthenticatedIntegrationsRoute =
     path: '/integrations',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const ApiPublicIngestBatteriesRoute =
   ApiPublicIngestBatteriesRouteImport.update({
     id: '/api/public/ingest/batteries',
@@ -81,10 +81,11 @@ const ApiPublicOauthGoogleCallbackRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AuthenticatedIndexRoute
-  '/auth': typeof AuthRoute
+  '/': typeof AuthenticatedRouteRouteWithChildren
   '/privacy': typeof PrivacyRoute
+  '/signin': typeof SigninRoute
   '/support': typeof SupportRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
   '/integrations': typeof AuthenticatedIntegrationsRoute
   '/logs': typeof AuthenticatedLogsRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -93,13 +94,14 @@ export interface FileRoutesByFullPath {
   '/api/public/oauth/whoop/callback': typeof ApiPublicOauthWhoopCallbackRoute
 }
 export interface FileRoutesByTo {
-  '/auth': typeof AuthRoute
+  '/': typeof AuthenticatedRouteRouteWithChildren
   '/privacy': typeof PrivacyRoute
+  '/signin': typeof SigninRoute
   '/support': typeof SupportRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
   '/integrations': typeof AuthenticatedIntegrationsRoute
   '/logs': typeof AuthenticatedLogsRoute
   '/settings': typeof AuthenticatedSettingsRoute
-  '/': typeof AuthenticatedIndexRoute
   '/api/public/ingest/batteries': typeof ApiPublicIngestBatteriesRoute
   '/api/public/oauth/google/callback': typeof ApiPublicOauthGoogleCallbackRoute
   '/api/public/oauth/whoop/callback': typeof ApiPublicOauthWhoopCallbackRoute
@@ -107,13 +109,13 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
-  '/auth': typeof AuthRoute
   '/privacy': typeof PrivacyRoute
+  '/signin': typeof SigninRoute
   '/support': typeof SupportRoute
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/integrations': typeof AuthenticatedIntegrationsRoute
   '/_authenticated/logs': typeof AuthenticatedLogsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
-  '/_authenticated/': typeof AuthenticatedIndexRoute
   '/api/public/ingest/batteries': typeof ApiPublicIngestBatteriesRoute
   '/api/public/oauth/google/callback': typeof ApiPublicOauthGoogleCallbackRoute
   '/api/public/oauth/whoop/callback': typeof ApiPublicOauthWhoopCallbackRoute
@@ -122,9 +124,10 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/auth'
     | '/privacy'
+    | '/signin'
     | '/support'
+    | '/dashboard'
     | '/integrations'
     | '/logs'
     | '/settings'
@@ -133,26 +136,27 @@ export interface FileRouteTypes {
     | '/api/public/oauth/whoop/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/auth'
+    | '/'
     | '/privacy'
+    | '/signin'
     | '/support'
+    | '/dashboard'
     | '/integrations'
     | '/logs'
     | '/settings'
-    | '/'
     | '/api/public/ingest/batteries'
     | '/api/public/oauth/google/callback'
     | '/api/public/oauth/whoop/callback'
   id:
     | '__root__'
     | '/_authenticated'
-    | '/auth'
     | '/privacy'
+    | '/signin'
     | '/support'
+    | '/_authenticated/dashboard'
     | '/_authenticated/integrations'
     | '/_authenticated/logs'
     | '/_authenticated/settings'
-    | '/_authenticated/'
     | '/api/public/ingest/batteries'
     | '/api/public/oauth/google/callback'
     | '/api/public/oauth/whoop/callback'
@@ -160,8 +164,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
-  AuthRoute: typeof AuthRoute
   PrivacyRoute: typeof PrivacyRoute
+  SigninRoute: typeof SigninRoute
   SupportRoute: typeof SupportRoute
   ApiPublicIngestBatteriesRoute: typeof ApiPublicIngestBatteriesRoute
   ApiPublicOauthGoogleCallbackRoute: typeof ApiPublicOauthGoogleCallbackRoute
@@ -177,18 +181,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SupportRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/signin': {
+      id: '/signin'
+      path: '/signin'
+      fullPath: '/signin'
+      preLoaderRoute: typeof SigninRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/privacy': {
       id: '/privacy'
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -197,13 +201,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/': {
-      id: '/_authenticated/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/settings': {
       id: '/_authenticated/settings'
@@ -224,6 +221,13 @@ declare module '@tanstack/react-router' {
       path: '/integrations'
       fullPath: '/integrations'
       preLoaderRoute: typeof AuthenticatedIntegrationsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/api/public/ingest/batteries': {
@@ -251,17 +255,17 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedIntegrationsRoute: typeof AuthenticatedIntegrationsRoute
   AuthenticatedLogsRoute: typeof AuthenticatedLogsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
-  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedIntegrationsRoute: AuthenticatedIntegrationsRoute,
   AuthenticatedLogsRoute: AuthenticatedLogsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
-  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
@@ -269,8 +273,8 @@ const AuthenticatedRouteRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
-  AuthRoute: AuthRoute,
   PrivacyRoute: PrivacyRoute,
+  SigninRoute: SigninRoute,
   SupportRoute: SupportRoute,
   ApiPublicIngestBatteriesRoute: ApiPublicIngestBatteriesRoute,
   ApiPublicOauthGoogleCallbackRoute: ApiPublicOauthGoogleCallbackRoute,
@@ -279,13 +283,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
