@@ -340,41 +340,8 @@ export const getLatestLog = createServerFn({ method: "GET" })
 
 type Section = { id: string; title: string; content: string };
 
-function collectCalendar(): Section | null {
-  // TODO: real Google Calendar fetch once OAuth lands.
-  return {
-    id: "calendar",
-    title: "Calendar",
-    content:
-      "You have three meetings today. 09:30 product sync, 13:00 1:1 with Alex, 16:00 deep-work block.",
-  };
-}
-function collectWhoop(): Section | null {
-  // TODO: real Whoop API.
-  return {
-    id: "whoop",
-    title: "Recovery",
-    content: "Recovery 72%. HRV trending up. Strain target 14.2.",
-  };
-}
-function collectBatteries(): Section | null {
-  return {
-    id: "batteries",
-    title: "Devices",
-    content: "AirPods at 38%, phone at 84%, watch at 91%.",
-  };
-}
-function collectRocaNews(): Section | null {
-  return {
-    id: "news",
-    title: "Roca News",
-    content:
-      "Markets opened flat. Three headlines worth your attention this morning, none requiring action.",
-  };
-}
-
 function fallbackBriefing(name: string, sections: Section[]): string {
-  const greeting = `Good morning, ${name}. Systems are nominal.`;
+  const greeting = `Good morning, ${name}.`;
   const body = sections.map((s) => `${s.title}. ${s.content}`).join(" ");
   return `${greeting} ${body} That's the briefing.`;
 }
@@ -385,7 +352,7 @@ async function generateText(
   sections: Section[],
 ): Promise<{ text: string; model: string }> {
   const prompt = [
-    "You are Jarvis, a personal morning briefing assistant.",
+    "You are Maverick, a personal morning briefing assistant.",
     `Subject name: ${name}.`,
     "Compose a concise, calm morning briefing in 5-8 sentences using ONLY the data below.",
     "Open with a short greeting. Mention each section naturally. End with a single confident closer.",
