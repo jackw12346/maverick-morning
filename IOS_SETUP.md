@@ -21,14 +21,17 @@ app is closed.
 ## One-time setup (Mac with Xcode)
 
 ```bash
-# 1. Build the web bundle (only needed if you set webDir mode)
-bun run build
+# 0. Install deps (first time you clone the repo on your Mac)
+npm install
+
+# 1. Build the web bundle (only needed if you switch to bundled mode — see below)
+npm run build
 
 # 2. Add the native iOS project (creates /ios)
-bunx cap add ios
+npx cap add ios
 
 # 3. Open in Xcode
-bunx cap open ios
+npx cap open ios
 ```
 
 In Xcode:
@@ -50,16 +53,16 @@ In Xcode:
 latest published web UI — no rebuild needed when you ship web changes.
 
 To switch to a fully bundled offline app, remove the `server` block and run
-`bun run build && bunx cap sync ios` before each Xcode build.
+`npm run build && npx cap sync ios` before each Xcode build.
 
 ## Daily workflow
 
 ```bash
 # After web changes (only needed if you removed server.url)
-bun run build && bunx cap sync ios
+npm run build && npx cap sync ios
 
 # Push to a connected device or simulator
-bunx cap run ios
+npx cap run ios
 ```
 
 ## Critical Alerts (optional — bypass silent/DND)
