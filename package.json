@@ -12,6 +12,12 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/background-runner": "^3.0.0",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/ios": "^8.4.1",
+    "@capacitor/local-notifications": "^8.2.0",
+    "@capacitor/preferences": "^8.0.1",
     "@fontsource/figtree": "^5.2.10",
     "@fontsource/inter": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
@@ -75,6 +81,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.4.1",
     "@eslint/js": "^9.32.0",
     "@lovable.dev/vite-tanstack-config": "2.6.4",
     "@types/node": "^22.16.5",
