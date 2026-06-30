@@ -451,6 +451,25 @@ async function synthesizeSpeech(
   return new Uint8Array(buf);
 }
 
+export const previewVoice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ voice: z.string().trim().min(1).max(32) }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey) throw new Error("AI key not configured");
+    const sample =
+      "Good morning. This is a quick preview of your Maverick briefing voice.";
+    const audio = await synthesizeSpeech(apiKey, sample, data.voice);
+    let binary = "";
+    for (let i = 0; i < audio.length; i++) binary += String.fromCharCode(audio[i]);
+    const base64 = btoa(binary);
+    return { audio_base64: base64, mime: "audio/mpeg" };
+  });
+
+
+
 export const generateMorningBriefing = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {

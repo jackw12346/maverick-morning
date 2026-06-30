@@ -11,7 +11,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { HudCard } from "@/components/hud/hud-card";
@@ -25,7 +25,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getSettings, updateSettings } from "@/lib/briefing.functions";
+import { getSettings, updateSettings, previewVoice } from "@/lib/briefing.functions";
+import { useServerFn } from "@tanstack/react-start";
+import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
@@ -109,6 +111,30 @@ function SettingsPage() {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["settings"] }),
   });
+
+  const previewFn = useServerFn(previewVoice);
+  const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  async function handleVoiceChange(v: (typeof voices)[number]) {
+    mut.mutate({ voice: v });
+    try {
+      setPreviewingVoice(v);
+      const res = await previewFn({ data: { voice: v } });
+      const src = `data:${res.mime};base64,${res.audio_base64}`;
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      const a = new Audio(src);
+      audioRef.current = a;
+      a.onended = () => setPreviewingVoice((cur) => (cur === v ? null : cur));
+      await a.play();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Voice preview failed");
+      setPreviewingVoice(null);
+    }
+  }
+
 
   return (
     <div className="space-y-6">
@@ -210,25 +236,33 @@ function SettingsPage() {
             <div className="flex items-center justify-between gap-4 rounded-md border border-border/60 bg-background/40 p-3">
               <div>
                 <Label className="text-sm font-medium">Voice</Label>
-                <div className="text-xs text-muted-foreground">Default narration voice.</div>
+                <div className="text-xs text-muted-foreground">
+                  Default narration voice. Plays a short sample when changed.
+                </div>
               </div>
-              <Select
-                value={data.voice ?? "alloy"}
-                onValueChange={(v) => mut.mutate({ voice: v as (typeof voices)[number] })}
-              >
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {voices.map((v) => (
-                    <SelectItem key={v} value={v} className="capitalize">
-                      {v}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                {previewingVoice ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-hud" />
+                ) : null}
+                <Select
+                  value={data.voice ?? "alloy"}
+                  onValueChange={(v) => handleVoiceChange(v as (typeof voices)[number])}
+                >
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {voices.map((v) => (
+                      <SelectItem key={v} value={v} className="capitalize">
+                        {v}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
+
         )}
       </HudCard>
     </div>
