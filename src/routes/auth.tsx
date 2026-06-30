@@ -66,24 +66,24 @@ function AuthPage() {
   };
 
   return (
-    <div className="hud-grid relative flex min-h-screen items-center justify-center px-4">
-      <div className="absolute inset-0 bg-[radial-gradient(800px_400px_at_50%_0%,oklch(0.82_0.14_215/0.15),transparent_60%)]" />
-      <div className="relative w-full max-w-sm rounded-lg border border-border/60 bg-card/70 p-6 backdrop-blur hud-glow">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md border border-hud/50 bg-background">
-            <Activity className="h-5 w-5 text-hud" />
+    <div className="relative flex min-h-screen items-center justify-center px-4">
+      <div className="absolute inset-0 bg-[radial-gradient(800px_400px_at_50%_0%,oklch(0.55_0.18_38/0.15),transparent_60%)]" />
+      <div className="relative w-full max-w-sm rounded-xl border border-border/60 bg-card/70 p-7 backdrop-blur">
+        <div className="mb-7 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
+            <span className="font-display text-lg font-bold">M</span>
           </div>
           <div>
-            <div className="mono text-[10px] uppercase tracking-[0.25em] text-hud/80">
-              J.A.R.V.I.S
+            <div className="font-display text-lg font-semibold leading-none">
+              Maverick
             </div>
-            <div className="text-base font-semibold">Authenticate operator</div>
+            <div className="mt-1 text-[11px] text-muted-foreground">Sign in to continue</div>
           </div>
         </div>
 
         <form onSubmit={submit} className="space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="email" className="mono text-[10px] uppercase tracking-wider">
+            <Label htmlFor="email" className="text-[11px] uppercase tracking-wider text-muted-foreground">
               Email
             </Label>
             <Input
@@ -96,7 +96,7 @@ function AuthPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="password" className="mono text-[10px] uppercase tracking-wider">
+            <Label htmlFor="password" className="text-[11px] uppercase tracking-wider text-muted-foreground">
               Password
             </Label>
             <Input
@@ -110,13 +110,13 @@ function AuthPage() {
             />
           </div>
           <Button type="submit" disabled={loading} className="w-full">
-            {loading ? "Engaging…" : mode === "signup" ? "Create account" : "Engage"}
+            {loading ? "Signing in…" : mode === "signup" ? "Create account" : "Sign in"}
           </Button>
         </form>
 
         <div className="my-4 flex items-center gap-3">
           <div className="h-px flex-1 bg-border" />
-          <span className="mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
             or
           </span>
           <div className="h-px flex-1 bg-border" />
@@ -132,8 +132,8 @@ function AuthPage() {
           className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-foreground"
         >
           {mode === "signin"
-            ? "No account? Register operator →"
-            : "Already enrolled? Sign in →"}
+            ? "Don't have an account? Sign up →"
+            : "Already have an account? Sign in →"}
         </button>
       </div>
     </div>
