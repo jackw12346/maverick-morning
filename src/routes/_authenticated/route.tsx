@@ -46,16 +46,15 @@ function AuthenticatedLayout() {
       <div className="mx-auto flex min-h-screen max-w-[1400px] gap-6 px-6 py-6">
         {/* sidebar */}
         <aside className="sticky top-6 hidden h-[calc(100vh-3rem)] w-60 shrink-0 flex-col rounded-lg border border-border/60 bg-card/50 p-4 backdrop-blur md:flex">
-          <div className="flex items-center gap-2 px-2 pb-4">
-            <div className="relative flex h-8 w-8 items-center justify-center rounded-md border border-hud/40 bg-background">
-              <Activity className="h-4 w-4 text-hud" />
-              <span className="absolute inset-0 rounded-md ring-1 ring-hud/30" />
+          <div className="flex items-center gap-3 px-2 pb-4">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              <span className="font-display text-base font-bold">M</span>
             </div>
             <div>
-              <div className="mono text-[10px] uppercase tracking-[0.25em] text-hud/80">
-                J.A.R.V.I.S
+              <div className="font-display text-base font-semibold tracking-tight">
+                Maverick
               </div>
-              <div className="text-sm font-semibold">Morning Briefing</div>
+              <div className="text-[11px] text-muted-foreground">Morning briefing</div>
             </div>
           </div>
 
