@@ -641,52 +641,66 @@ function ShortcutGuide({ url, token }: { url: string; token: string }) {
                 </p>
               </Step>
 
-              <Step n={2} title="Add the actions in this order">
-                <p>Tap the search bar at the bottom and add each action below. The preview shows roughly how each card will look in Shortcuts:</p>
+              <Step n={2} title="Add these two actions">
+                <p>Tap the search bar at the bottom and add each action. iOS Shortcuts has no “Get Power State” action — charging is sent as a fixed <code>false</code> here, then flipped to <code>true</code> by a separate Charger automation (covered on the Automate tab).</p>
                 <div className="space-y-1.5">
                   <ActionCard
                     icon={<BatteryMedium className="h-4 w-4" />}
                     color="bg-green-600"
                     title="Get Battery Level"
-                    detail="No options. Returns the iPhone battery as 0–100."
+                    detail="No options. Outputs a number 0–100."
                     output="Battery Level"
-                  />
-                  <Arrow />
-                  <ActionCard
-                    icon={<Zap className="h-4 w-4" />}
-                    color="bg-yellow-600"
-                    title="Get Device Details"
-                    detail={<>Tap the blue parameter and switch from <em>Device Model</em> to <strong>Power State</strong>. Returns <code>true</code>/<code>false</code>.</>}
-                    output="Power State"
                   />
                   <Arrow />
                   <ActionCard
                     icon={<Webhook className="h-4 w-4" />}
                     color="bg-blue-600"
                     title="Get Contents of URL"
-                    detail={<>Paste the URL above. Tap <strong>Show More</strong> to expose Method / Headers / Body.</>}
+                    detail={<>Paste the endpoint URL. Tap <strong>Show More</strong> to reveal Method / Headers / Request Body.</>}
                   />
                 </div>
               </Step>
 
-              <Step n={3} title="Configure the URL action">
-                <div className="rounded-md border border-border/60 bg-background/60 p-2.5 text-[11px]">
-                  <table className="w-full">
-                    <tbody className="[&_td]:py-1 [&_td:first-child]:pr-3 [&_td:first-child]:text-muted-foreground">
-                      <tr><td>URL</td><td className="font-mono break-all">{url}</td></tr>
-                      <tr><td>Method</td><td className="font-mono">POST</td></tr>
-                      <tr><td>Headers</td><td className="font-mono">Content-Type: application/json</td></tr>
-                      <tr><td>Request Body</td><td className="font-mono">JSON → choose <strong>File</strong> field</td></tr>
-                    </tbody>
-                  </table>
+              <Step n={3} title="Configure Get Contents of URL">
+                <div className="rounded-md border border-border/60 bg-background/60 p-2.5 text-[11px] space-y-1">
+                  <div><span className="text-muted-foreground">URL: </span><span className="font-mono break-all">{url}</span></div>
+                  <div><span className="text-muted-foreground">Method: </span><span className="font-mono">POST</span></div>
                 </div>
-                <p>
-                  For the body, use a <strong>Text</strong> action above the URL action and paste the JSON below into it.
-                  Then in the URL action, set <em>Request Body → File</em> to that Text variable.
-                  Tap the bracketed values <code>[Battery Level]</code> and <code>[Power State]</code> to replace them with the magic variables from steps above.
-                </p>
+
+                <div className="rounded-md border border-border/60 bg-background/60 p-2.5">
+                  <div className="text-[12px] font-semibold text-foreground">Headers</div>
+                  <p className="mt-1 text-[11px]">Tap <strong>Add new header</strong>. Two fields appear — <em>Key</em> and <em>Text</em>:</p>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] font-mono">
+                    <div className="rounded border border-border/60 bg-background/70 p-1.5"><span className="text-muted-foreground">Key</span><br/>Content-Type</div>
+                    <div className="rounded border border-border/60 bg-background/70 p-1.5"><span className="text-muted-foreground">Text</span><br/>application/json</div>
+                  </div>
+                </div>
+
+                <div className="rounded-md border border-border/60 bg-background/60 p-2.5">
+                  <div className="text-[12px] font-semibold text-foreground">Request Body → JSON</div>
+                  <p className="mt-1 text-[11px]">
+                    Set <em>Request Body</em> to <strong>JSON</strong> (not Form, not File). Shortcuts opens a dictionary builder — each row has a <strong>Key</strong>, a <strong>type picker</strong> (Text · Number · Array · Dictionary · Boolean), and a value field. Build it like this:
+                  </p>
+                  <ul className="mt-2 space-y-1.5 text-[11px]">
+                    <li>
+                      <span className="font-mono">token</span> · <span className="rounded bg-secondary/60 px-1 text-[10px]">Text</span> · paste your token
+                    </li>
+                    <li>
+                      <span className="font-mono">devices</span> · <span className="rounded bg-secondary/60 px-1 text-[10px]">Array</span> → tap the array, <strong>Add new item</strong> → set the item type to <span className="rounded bg-secondary/60 px-1 text-[10px]">Dictionary</span>, then inside it:
+                      <ul className="mt-1 ml-3 space-y-1">
+                        <li><span className="font-mono">name</span> · <span className="rounded bg-secondary/60 px-1 text-[10px]">Text</span> · <span className="font-mono">iPhone</span></li>
+                        <li><span className="font-mono">level</span> · <span className="rounded bg-secondary/60 px-1 text-[10px]">Number</span> · tap the value field, then the <strong>Battery Level</strong> magic variable from step 2</li>
+                        <li><span className="font-mono">charging</span> · <span className="rounded bg-secondary/60 px-1 text-[10px]">Boolean</span> · toggle <strong>off</strong> (false)</li>
+                      </ul>
+                    </li>
+                  </ul>
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    The reference JSON below is what the dictionary should equate to — <code>[Battery Level]</code> is the magic variable, not literal text.
+                  </p>
+                </div>
                 <CopyRow label="Body" value={jsonBody} />
               </Step>
+
 
               <Step n={4} title="Run once to test">
                 <p>
