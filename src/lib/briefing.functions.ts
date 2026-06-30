@@ -376,6 +376,7 @@ async function generateText(
   apiKey: string,
   name: string,
   sections: Section[],
+  customInstructions: string,
 ): Promise<{ text: string; model: string }> {
   const prompt = [
     "You are Maverick, a personal morning briefing assistant.",
@@ -383,9 +384,12 @@ async function generateText(
     "Compose a concise, calm morning briefing in 5-8 sentences using ONLY the data below.",
     "Open with a short greeting. Mention each section naturally. End with a single confident closer.",
     "For the calendar: mention ALL events listed (both family and personal). If any event is tagged [FAMILY — prioritize], lead with it and frame it as the top priority, then continue with the remaining personal events in order. Do not omit personal events.",
+    customInstructions.trim()
+      ? `User refinement instructions (follow these closely, they override default tone/style when in conflict):\n${customInstructions.trim()}`
+      : "",
     "Data sections:",
     ...sections.map((s) => `- ${s.title}: ${s.content}`),
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 
   const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
