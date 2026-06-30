@@ -84,8 +84,8 @@ function AuthenticatedLayout() {
           </nav>
 
           <div className="mt-2 rounded-md border border-border/60 bg-background/60 p-3">
-            <div className="mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              Operator
+            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+              Account
             </div>
             <div className="mt-0.5 truncate text-xs">{user.email}</div>
             <Button
@@ -94,7 +94,7 @@ function AuthenticatedLayout() {
               onClick={signOut}
               className="mt-2 h-7 w-full justify-start px-2 text-xs text-muted-foreground hover:text-foreground"
             >
-              <LogOut className="mr-2 h-3.5 w-3.5" /> Disengage
+              <LogOut className="mr-2 h-3.5 w-3.5" /> Sign out
             </Button>
           </div>
         </aside>
