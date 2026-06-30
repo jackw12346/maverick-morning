@@ -11,6 +11,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MaverickLogo } from "@/components/MaverickLogo";
 
 export const Route = createFileRoute("/")({
   head: () => ({
