@@ -220,6 +220,11 @@ Content-Type: application/json
   ]
 }`}</pre>
           </details>
+          <ShortcutGuide
+            url={`${typeof window !== "undefined" ? window.location.origin : ""}/api/public/ingest/batteries`}
+            token={ingest.data?.token ?? "<your-token>"}
+          />
+        </div>
         </div>
         {batteries.data && batteries.data.length > 0 && (
           <div className="mt-4 space-y-1.5">
