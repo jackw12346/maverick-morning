@@ -63,6 +63,7 @@ export const updateSettings = createServerFn({ method: "POST" })
         include_batteries: z.boolean().optional(),
         include_roca_news: z.boolean().optional(),
         news_topics: z.string().max(500).optional(),
+        custom_instructions: z.string().max(2000).optional(),
         text_to_speech_enabled: z.boolean().optional(),
         voice: z.enum(["alloy", "echo", "fable", "onyx", "nova", "shimmer"]).optional(),
       })
