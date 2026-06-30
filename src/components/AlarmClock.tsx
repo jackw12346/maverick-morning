@@ -7,6 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { generateMorningBriefing, getLatestLog } from "@/lib/briefing.functions";
+import {
+  cancelDailyAlarm,
+  isNative,
+  onAppResume,
+  onNotificationAction,
+  scheduleDailyAlarm,
+} from "@/lib/native";
 
 const STORAGE_KEY = "maverick.alarm.v1";
 const LEAD_MINUTES = 5;
