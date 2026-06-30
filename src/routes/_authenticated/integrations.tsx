@@ -220,6 +220,10 @@ Content-Type: application/json
   ]
 }`}</pre>
           </details>
+          <ShortcutGuide
+            url={`${typeof window !== "undefined" ? window.location.origin : ""}/api/public/ingest/batteries`}
+            token={ingest.data?.token ?? "<your-token>"}
+          />
         </div>
         {batteries.data && batteries.data.length > 0 && (
           <div className="mt-4 space-y-1.5">
@@ -469,5 +473,119 @@ function NewWebhookButton({ onCreated }: { onCreated: () => void }) {
         Cancel
       </Button>
     </form>
+  );
+}
+
+function ShortcutGuide({ url, token }: { url: string; token: string }) {
+  const [open, setOpen] = useState(false);
+  const jsonBody = `{
+  "token": "${token}",
+  "devices": [
+    { "name": "iPhone", "level": [Battery Level], "charging": [Power State] }
+  ]
+}`;
+
+  const steps: Array<{ title: string; body: React.ReactNode; copy?: { label: string; value: string } }> = [
+    {
+      title: "Open the Shortcuts app on iPhone",
+      body: <>Tap the <strong>+</strong> in the top-right to create a new shortcut. Name it <em>“Maverick Battery Sync”</em>.</>,
+    },
+    {
+      title: "Add a “Get Battery Level” action",
+      body: <>Search for <code className="rounded bg-secondary/60 px-1">Battery Level</code> and add it. This returns a 0–100 number.</>,
+    },
+    {
+      title: "Add a “Get Device Details” → Power State (optional)",
+      body: <>Search <code className="rounded bg-secondary/60 px-1">Get Device Details</code>, set it to <em>Power State</em>. Returns <code>true</code>/<code>false</code> for charging.</>,
+    },
+    {
+      title: "Add a “Get Contents of URL” action",
+      body: (
+        <>
+          Tap <strong>Show More</strong> on the action and set:
+          <ul className="mt-1 list-disc pl-5 space-y-0.5">
+            <li><strong>Method:</strong> POST</li>
+            <li><strong>Headers:</strong> <code>Content-Type</code> = <code>application/json</code></li>
+            <li><strong>Request Body:</strong> JSON (then tap <em>Add new field → Text</em> and paste the JSON below as the raw body — or use the “File” option with a Text action feeding it)</li>
+          </ul>
+        </>
+      ),
+      copy: { label: "URL", value: url },
+    },
+    {
+      title: "Paste the JSON body",
+      body: <>In the request body, insert magic variables for <em>Battery Level</em> and <em>Power State</em> where shown in brackets.</>,
+      copy: { label: "Body", value: jsonBody },
+    },
+    {
+      title: "Automate it",
+      body: (
+        <>
+          Go to the <strong>Automation</strong> tab → <strong>+</strong> → <em>Time of Day</em> (e.g. 6:45 AM), or <em>Battery Level → Falls Below 30%</em>.
+          Choose your shortcut and turn off <em>Ask Before Running</em>.
+        </>
+      ),
+    },
+    {
+      title: "Test it",
+      body: <>Run the shortcut once manually. You should see your iPhone appear under <em>Last seen</em> below within a few seconds.</>,
+    },
+  ];
+
+  return (
+    <div className="mt-3 rounded-md border border-border/60 bg-background/40">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-xs"
+      >
+        <span className="flex items-center gap-2 font-medium">
+          <BatteryMedium className="h-3.5 w-3.5 text-primary" />
+          iOS Shortcut · step-by-step setup
+        </span>
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          {open ? "Hide" : "Show"}
+        </span>
+      </button>
+      {open && (
+        <ol className="space-y-3 border-t border-border/60 p-3 text-xs">
+          {steps.map((step, i) => (
+            <li key={i} className="flex gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-[11px] font-semibold text-primary">
+                {i + 1}
+              </span>
+              <div className="flex-1 space-y-2">
+                <div className="text-sm font-medium leading-tight">{step.title}</div>
+                <div className="text-xs leading-relaxed text-muted-foreground">{step.body}</div>
+                {step.copy && (
+                  <div className="flex items-start gap-2 rounded border border-border/60 bg-background/60 p-2">
+                    <span className="mt-0.5 shrink-0 text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {step.copy.label}
+                    </span>
+                    <code className="flex-1 whitespace-pre-wrap break-all font-mono text-[11px]">
+                      {step.copy.value}
+                    </code>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(step.copy!.value);
+                        toast.success("Copied");
+                      }}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </li>
+          ))}
+          <li className="rounded border border-dashed border-border/60 bg-background/40 p-3 text-[11px] text-muted-foreground">
+            Tip: you can include AirPods and Apple Watch by adding additional objects to the <code>devices</code> array, sourcing their levels from a Home Assistant or third-party integration.
+          </li>
+        </ol>
+      )}
+    </div>
   );
 }
