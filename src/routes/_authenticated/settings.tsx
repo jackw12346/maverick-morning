@@ -118,6 +118,7 @@ function SettingsPage() {
                 </label>
               );
             })}
+            {data?.include_roca_news ? <NewsTopicsInput initial={data.news_topics ?? ""} onSave={(v) => mut.mutate({ news_topics: v })} /> : null}
           </div>
         )}
       </HudCard>
