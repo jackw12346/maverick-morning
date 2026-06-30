@@ -483,17 +483,17 @@ function ShortcutGuide({ url, token }: { url: string; token: string }) {
   const jsonBody = `{
   "token": "${token}",
   "devices": [
-    { "name": "iPhone", "level": [Battery Level], "charging": [Power State] }
+    { "name": "iPhone", "level": [Battery Level], "charging": false }
   ]
 }`;
 
   const extendedJson = `{
   "token": "${token}",
   "devices": [
-    { "name": "iPhone",       "level": [Battery Level],        "charging": [Power State] },
-    { "name": "Apple Watch",  "level": [Watch Battery],        "charging": false },
-    { "name": "AirPods Pro",  "level": [AirPods Battery],      "charging": false },
-    { "name": "MacBook Pro",  "level": [Mac Battery via SSH],  "charging": false }
+    { "name": "iPhone",       "level": [Battery Level],    "charging": false },
+    { "name": "Apple Watch",  "level": [Watch Battery],    "charging": false },
+    { "name": "AirPods Pro",  "level": [AirPods Battery],  "charging": false },
+    { "name": "MacBook Pro",  "level": [Mac Battery],      "charging": false }
   ]
 }`;
 
