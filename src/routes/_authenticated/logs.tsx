@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { AudioLines, Clock, FileText } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AudioLines, Clock, FileText, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { HudCard } from "@/components/hud/hud-card";
 import { BriefingAudioPlayer } from "@/components/BriefingAudioPlayer";
-import { listLogs } from "@/lib/briefing.functions";
+import { Button } from "@/components/ui/button";
+import { deleteLog, listLogs } from "@/lib/briefing.functions";
 
 export const Route = createFileRoute("/_authenticated/logs")({
   component: LogsPage,
