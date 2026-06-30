@@ -1,12 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
+  BatteryMedium,
   CalendarDays,
   CheckCircle2,
+  Copy,
   HeartPulse,
   Lightbulb,
   Loader2,
+  Plug,
   Plus,
   Radio,
   Speaker,
@@ -14,8 +17,9 @@ import {
   Webhook,
   Zap,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 import { HudCard } from "@/components/hud/hud-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,14 +34,23 @@ import {
 } from "@/components/ui/select";
 import {
   deleteWebhook,
+  disconnectIntegration,
+  getIngestToken,
+  listBatteries,
   listIntegrations,
   listWebhooks,
   pingWebhook,
-  setIntegrationStatus,
+  startOAuth,
   upsertWebhook,
 } from "@/lib/briefing.functions";
 
+const searchSchema = z.object({
+  connected: z.string().optional(),
+  oauth_error: z.string().optional(),
+});
+
 export const Route = createFileRoute("/_authenticated/integrations")({
+  validateSearch: searchSchema,
   component: IntegrationsPage,
 });
 
@@ -45,13 +58,13 @@ const providers = [
   {
     id: "google_calendar" as const,
     label: "Google Calendar",
-    desc: "Pull today's events and meeting load.",
+    desc: "Pull today's events and meeting load from your primary calendar.",
     icon: CalendarDays,
   },
   {
     id: "whoop" as const,
     label: "Whoop",
-    desc: "Recovery, HRV, sleep score and strain.",
+    desc: "Latest recovery score, HRV, and resting heart rate.",
     icon: HeartPulse,
   },
 ];
@@ -64,16 +77,55 @@ const targets = [
 
 function IntegrationsPage() {
   const qc = useQueryClient();
+  const search = useSearch({ from: "/_authenticated/integrations" });
+
+  useEffect(() => {
+    if (search.connected) {
+      toast.success(`Connected: ${search.connected.replace("_", " ")}`);
+      qc.invalidateQueries({ queryKey: ["integrations"] });
+      window.history.replaceState({}, "", "/integrations");
+    }
+    if (search.oauth_error) {
+      toast.error(`OAuth failed: ${search.oauth_error}`);
+      window.history.replaceState({}, "", "/integrations");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const integrations = useQuery({
     queryKey: ["integrations"],
     queryFn: () => listIntegrations(),
   });
   const webhooks = useQuery({ queryKey: ["webhooks"], queryFn: () => listWebhooks() });
+  const ingest = useQuery({
+    queryKey: ["ingest-token"],
+    queryFn: () => getIngestToken(),
+  });
+  const batteries = useQuery({
+    queryKey: ["batteries"],
+    queryFn: () => listBatteries(),
+  });
 
-  const setStatus = useMutation({
-    mutationFn: (v: { provider: "google_calendar" | "whoop"; status: "connected" | "disconnected" }) =>
-      setIntegrationStatus({ data: v }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["integrations"] }),
+  const startConnect = useMutation({
+    mutationFn: (provider: "google_calendar" | "whoop") =>
+      startOAuth({ data: { provider, origin: window.location.origin } }),
+    onSuccess: (r) => {
+      if (r.ok) {
+        window.location.href = r.url;
+      } else {
+        toast.error(r.error);
+      }
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+
+  const disconnect = useMutation({
+    mutationFn: (provider: "google_calendar" | "whoop") =>
+      disconnectIntegration({ data: { provider } }),
+    onSuccess: () => {
+      toast.success("Disconnected");
+      qc.invalidateQueries({ queryKey: ["integrations"] });
+    },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
 
@@ -84,6 +136,7 @@ function IntegrationsPage() {
           {providers.map((p) => {
             const row = integrations.data?.find((i) => i.provider === p.id);
             const connected = row?.status === "connected";
+            const errored = row?.status === "error";
             const Icon = p.icon;
             return (
               <div
@@ -93,43 +146,100 @@ function IntegrationsPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-md border border-border/60 bg-secondary/60">
-                      <Icon className="h-5 w-5 text-hud" />
+                      <Icon className="h-5 w-5 text-primary" />
                     </div>
                     <div>
                       <div className="text-sm font-semibold">{p.label}</div>
                       <div className="text-xs text-muted-foreground">{p.desc}</div>
                     </div>
                   </div>
-                  <StatusPill connected={connected} />
+                  <StatusPill connected={connected} errored={errored} />
                 </div>
                 <div className="mt-4 flex items-center justify-between">
-                  <div className="mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
                     {row?.updated_at
                       ? `synced ${new Date(row.updated_at).toLocaleString()}`
                       : "not connected"}
                   </div>
-                  <Button
-                    size="sm"
-                    variant={connected ? "secondary" : "default"}
-                    onClick={() =>
-                      setStatus.mutate({
-                        provider: p.id,
-                        status: connected ? "disconnected" : "connected",
-                      })
-                    }
-                  >
-                    {connected ? "Disconnect" : "Mark connected"}
-                  </Button>
+                  {connected ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => disconnect.mutate(p.id)}
+                      disabled={disconnect.isPending}
+                    >
+                      Disconnect
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={() => startConnect.mutate(p.id)}
+                      disabled={startConnect.isPending}
+                    >
+                      {startConnect.isPending ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Plug className="mr-1.5 h-3.5 w-3.5" />
+                      )}
+                      Connect
+                    </Button>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
         <p className="mt-3 text-[11px] text-muted-foreground">
-          OAuth flows for Google Calendar and Whoop will be wired into the
-          <code className="mx-1 mono text-hud">integration_tokens</code> table once provider
-          credentials are configured.
+          You'll be redirected to the provider to authorize Maverick. Tokens are stored
+          per user and refreshed automatically.
         </p>
+      </HudCard>
+
+      <HudCard
+        eyebrow="Device telemetry"
+        title="Battery ingest endpoint"
+      >
+        <p className="text-sm text-muted-foreground">
+          POST device battery levels from an iOS Shortcut, Home Assistant, or any
+          script. The endpoint is public but authorized by your personal token.
+        </p>
+        <div className="mt-3 space-y-2">
+          <CodeRow label="URL" value={`${typeof window !== "undefined" ? window.location.origin : ""}/api/public/ingest/batteries`} />
+          <CodeRow label="Token" value={ingest.data?.token ?? "loading…"} secret />
+          <details className="mt-2 rounded-md border border-border/60 bg-background/40 p-3 text-xs">
+            <summary className="cursor-pointer text-muted-foreground">Example payload</summary>
+            <pre className="mt-2 overflow-auto text-[11px] leading-relaxed">{`POST /api/public/ingest/batteries
+Content-Type: application/json
+
+{
+  "token": "${ingest.data?.token ?? "<your-token>"}",
+  "devices": [
+    { "name": "iPhone", "level": 84, "charging": false },
+    { "name": "AirPods", "level": 38 },
+    { "name": "Watch", "level": 91, "charging": true }
+  ]
+}`}</pre>
+          </details>
+        </div>
+        {batteries.data && batteries.data.length > 0 && (
+          <div className="mt-4 space-y-1.5">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Last seen
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {batteries.data.map((b) => (
+                <span
+                  key={b.device_name}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary/40 px-3 py-1 text-xs"
+                >
+                  <BatteryMedium className="h-3.5 w-3.5 text-primary" />
+                  {b.device_name} · {b.level}%
+                  {b.is_charging ? " ⚡" : ""}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </HudCard>
 
       <HudCard
@@ -156,10 +266,46 @@ function IntegrationsPage() {
   );
 }
 
-function StatusPill({ connected }: { connected: boolean }) {
+function CodeRow({ label, value, secret }: { label: string; value: string; secret?: boolean }) {
+  const [shown, setShown] = useState(!secret);
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/60 bg-background/40 p-2.5">
+      <span className="text-[10px] uppercase tracking-wider text-muted-foreground w-12">
+        {label}
+      </span>
+      <code className="flex-1 truncate text-xs font-mono">
+        {shown ? value : "•".repeat(Math.min(value.length, 36))}
+      </code>
+      {secret && (
+        <Button size="sm" variant="ghost" onClick={() => setShown((s) => !s)}>
+          {shown ? "Hide" : "Show"}
+        </Button>
+      )}
+      <Button
+        size="sm"
+        variant="secondary"
+        onClick={() => {
+          navigator.clipboard.writeText(value);
+          toast.success("Copied");
+        }}
+      >
+        <Copy className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  );
+}
+
+function StatusPill({ connected, errored }: { connected: boolean; errored?: boolean }) {
+  if (errored) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[10px] text-destructive">
+        <Activity className="h-3 w-3" /> Error
+      </span>
+    );
+  }
   return connected ? (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-[10px] text-success">
-      <CheckCircle2 className="h-3 w-3" /> Online
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
+      <CheckCircle2 className="h-3 w-3" /> Connected
     </span>
   ) : (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-secondary/40 px-2 py-0.5 text-[10px] text-muted-foreground">
@@ -210,16 +356,16 @@ function WebhookRow({ webhook }: { webhook: Webhook }) {
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-md border border-border/60 bg-background/40 p-3">
       <div className="flex h-9 w-9 items-center justify-center rounded-md border border-border/60 bg-secondary/60">
-        <Icon className="h-4 w-4 text-hud" />
+        <Icon className="h-4 w-4 text-primary" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium">{webhook.label}</span>
-          <span className="mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
             {webhook.target}
           </span>
         </div>
-        <div className="truncate mono text-[11px] text-muted-foreground">{webhook.url}</div>
+        <div className="truncate font-mono text-[11px] text-muted-foreground">{webhook.url}</div>
       </div>
       <div className="flex items-center gap-2">
         <Switch
@@ -280,7 +426,7 @@ function NewWebhookButton({ onCreated }: { onCreated: () => void }) {
       className="flex flex-wrap items-end gap-2"
     >
       <div className="space-y-1">
-        <Label className="mono text-[10px] uppercase tracking-wider">Label</Label>
+        <Label className="text-[10px] uppercase tracking-wider">Label</Label>
         <Input
           required
           value={label}
@@ -290,7 +436,7 @@ function NewWebhookButton({ onCreated }: { onCreated: () => void }) {
         />
       </div>
       <div className="space-y-1">
-        <Label className="mono text-[10px] uppercase tracking-wider">Target</Label>
+        <Label className="text-[10px] uppercase tracking-wider">Target</Label>
         <Select value={target} onValueChange={(v) => setTarget(v as typeof target)}>
           <SelectTrigger className="h-8 w-32">
             <SelectValue />
@@ -305,7 +451,7 @@ function NewWebhookButton({ onCreated }: { onCreated: () => void }) {
         </Select>
       </div>
       <div className="space-y-1">
-        <Label className="mono text-[10px] uppercase tracking-wider">URL</Label>
+        <Label className="text-[10px] uppercase tracking-wider">URL</Label>
         <Input
           required
           type="url"
