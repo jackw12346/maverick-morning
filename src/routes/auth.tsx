@@ -96,7 +96,7 @@ function AuthPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="password" className="mono text-[10px] uppercase tracking-wider">
+            <Label htmlFor="password" className="text-[11px] uppercase tracking-wider text-muted-foreground">
               Password
             </Label>
             <Input
@@ -110,13 +110,13 @@ function AuthPage() {
             />
           </div>
           <Button type="submit" disabled={loading} className="w-full">
-            {loading ? "Engaging…" : mode === "signup" ? "Create account" : "Engage"}
+            {loading ? "Signing in…" : mode === "signup" ? "Create account" : "Sign in"}
           </Button>
         </form>
 
         <div className="my-4 flex items-center gap-3">
           <div className="h-px flex-1 bg-border" />
-          <span className="mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
             or
           </span>
           <div className="h-px flex-1 bg-border" />
@@ -132,8 +132,8 @@ function AuthPage() {
           className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-foreground"
         >
           {mode === "signin"
-            ? "No account? Register operator →"
-            : "Already enrolled? Sign in →"}
+            ? "Don't have an account? Sign up →"
+            : "Already have an account? Sign in →"}
         </button>
       </div>
     </div>
