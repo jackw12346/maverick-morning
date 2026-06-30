@@ -10,7 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
-import { HudCard } from "@/components/hud/hud-card";
+
 import { BriefingAudioPlayer } from "@/components/BriefingAudioPlayer";
 import { Button } from "@/components/ui/button";
 import {
