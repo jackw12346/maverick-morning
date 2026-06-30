@@ -7,17 +7,29 @@ export type Section = { id: string; title: string; content: string };
 // ---------- Weather (Open-Meteo, no API key required) ----------
 
 async function geocode(location: string): Promise<{ lat: number; lon: number; name: string; tz: string } | null> {
-  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1&language=en&format=json`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-  if (!res.ok) return null;
-  const j = (await res.json()) as {
-    results?: Array<{ latitude: number; longitude: number; name: string; admin1?: string; country_code?: string; timezone?: string }>;
-  };
-  const r = j.results?.[0];
-  if (!r) return null;
-  const label = [r.name, r.admin1, r.country_code].filter(Boolean).join(", ");
-  return { lat: r.latitude, lon: r.longitude, name: label, tz: r.timezone ?? "auto" };
+  // Open-Meteo geocoder matches a single name token best — strip ", ST"/", Country" suffixes on retry.
+  const variants = Array.from(
+    new Set([
+      location,
+      location.split(",")[0]?.trim() ?? location,
+      location.replace(/,/g, " ").replace(/\s+/g, " ").trim(),
+    ].filter(Boolean)),
+  );
+  for (const q of variants) {
+    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=en&format=json`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) continue;
+    const j = (await res.json()) as {
+      results?: Array<{ latitude: number; longitude: number; name: string; admin1?: string; country_code?: string; timezone?: string }>;
+    };
+    const r = j.results?.[0];
+    if (!r) continue;
+    const label = [r.name, r.admin1, r.country_code].filter(Boolean).join(", ");
+    return { lat: r.latitude, lon: r.longitude, name: label, tz: r.timezone ?? "auto" };
+  }
+  return null;
 }
+
 
 const WX: Record<number, string> = {
   0: "clear", 1: "mostly clear", 2: "partly cloudy", 3: "overcast",
