@@ -430,14 +430,17 @@ export const generateMorningBriefing = createServerFn({ method: "POST" })
 
     const name = profile?.display_name?.trim() || "there";
 
-    const { collectCalendar, collectWhoop, collectBatteries, collectRocaNews } =
+    const { collectCalendar, collectWhoop, collectBatteries, collectTailoredNews } =
       await import("@/lib/data-sources.server");
+
+    const apiKey = process.env.LOVABLE_API_KEY;
 
     const collectors: Promise<Section | null>[] = [];
     if (settings?.include_calendar) collectors.push(collectCalendar(userId));
     if (settings?.include_whoop) collectors.push(collectWhoop(userId));
     if (settings?.include_batteries) collectors.push(collectBatteries(userId));
-    if (settings?.include_roca_news) collectors.push(collectRocaNews());
+    if (settings?.include_roca_news)
+      collectors.push(collectTailoredNews(settings?.news_topics ?? "", apiKey, name));
     const sections = (await Promise.all(collectors)).filter(
       (s): s is Section => s !== null,
     );
