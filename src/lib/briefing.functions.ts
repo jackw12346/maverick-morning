@@ -115,6 +115,79 @@ export const setIntegrationStatus = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// Generate OAuth start URL for a provider. Client navigates to the returned URL.
+export const startOAuth = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        provider: z.enum(["google_calendar", "whoop"]),
+        origin: z.string().url(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { createAuthUrl } = await import("@/lib/oauth.server");
+    try {
+      const url = await createAuthUrl({
+        provider: data.provider,
+        userId: context.userId,
+        origin: data.origin,
+      });
+      return { ok: true as const, url };
+    } catch (e) {
+      return {
+        ok: false as const,
+        error: e instanceof Error ? e.message : "Failed to start OAuth",
+      };
+    }
+  });
+
+export const disconnectIntegration = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ provider: z.enum(["google_calendar", "whoop"]) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { error } = await supabase
+      .from("integration_tokens")
+      .delete()
+      .eq("user_id", userId)
+      .eq("provider", data.provider);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+// Returns the user's ingest token for the batteries POST endpoint.
+export const getIngestToken = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("ingest_token")
+      .eq("id", userId)
+      .maybeSingle();
+    if (error) throw error;
+    return { token: data?.ingest_token ?? null };
+  });
+
+// Latest battery readings for the dashboard.
+export const listBatteries = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const { data, error } = await supabase
+      .from("device_batteries")
+      .select("device_name,level,is_charging,updated_at")
+      .eq("user_id", userId)
+      .order("device_name");
+    if (error) throw error;
+    return data ?? [];
+  });
+
+
 // ---------- Webhooks ----------
 
 export const listWebhooks = createServerFn({ method: "GET" })
