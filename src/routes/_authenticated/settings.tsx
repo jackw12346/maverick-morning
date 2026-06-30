@@ -207,3 +207,47 @@ function NewsTopicsInput({ initial, onSave }: { initial: string; onSave: (v: str
     </div>
   );
 }
+
+function CustomInstructionsInput({
+  initial,
+  onSave,
+}: {
+  initial: string;
+  onSave: (v: string) => void;
+}) {
+  const [value, setValue] = useState(initial);
+  useEffect(() => setValue(initial), [initial]);
+  const dirty = value !== initial;
+  return (
+    <div className="space-y-3 rounded-md border border-border/60 bg-background/40 p-3">
+      <div>
+        <Label className="text-sm font-medium">Refine how Maverick speaks to you</Label>
+        <div className="text-xs text-muted-foreground mt-1">
+          Free-form instructions appended to every briefing prompt. Examples: "Keep it under 4
+          sentences", "Be sarcastic and concise", "Always end with a workout suggestion", "Skip
+          weather, lead with my first meeting".
+        </div>
+      </div>
+      <Textarea
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        rows={5}
+        maxLength={2000}
+        placeholder="Tell Maverick how you want the briefing tailored…"
+      />
+      <div className="flex items-center justify-between">
+        <span className="mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          {value.length} / 2000
+        </span>
+        <Button
+          size="sm"
+          variant={dirty ? "default" : "secondary"}
+          disabled={!dirty}
+          onClick={() => onSave(value)}
+        >
+          Save instructions
+        </Button>
+      </div>
+    </div>
+  );
+}
