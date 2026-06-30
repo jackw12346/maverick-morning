@@ -78,6 +78,19 @@ function LogsPage() {
                           <AudioLines className="h-3 w-3" /> tts
                         </span>
                       )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-muted-foreground hover:text-destructive"
+                        disabled={del.isPending}
+                        onClick={() => {
+                          if (confirm("Delete this briefing? This cannot be undone.")) {
+                            del.mutate(log.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </header>
                   <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
