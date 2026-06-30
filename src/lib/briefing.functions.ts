@@ -386,9 +386,10 @@ async function generateText(
   const prompt = [
     "You are Maverick, a personal morning briefing assistant.",
     `Subject name: ${name}.`,
-    "Compose a concise, calm morning briefing in 5-8 sentences using ONLY the data below.",
-    "Open with a short greeting. Mention each section naturally. End with a single confident closer.",
-    "For the calendar: mention ALL events listed (both family and personal). If any event is tagged [FAMILY — prioritize], lead with it and frame it as the top priority, then continue with the remaining personal events in order. Do not omit personal events.",
+    "Compose a concise, calm morning briefing using ONLY the data below.",
+    "Open with a short greeting. You MUST mention EVERY data section listed below — do not skip any (weather, traffic, calendar, whoop, batteries, news). End with a single confident closer.",
+    "Lead the briefing with Weather and Traffic when present, then move into the day's agenda.",
+    "For the calendar: mention ALL events listed (both family and personal). If any event is tagged [FAMILY — prioritize], lead the calendar portion with it as top priority, then continue with the remaining personal events in order. Do not omit personal events.",
     customInstructions.trim()
       ? `User refinement instructions (follow these closely, they override default tone/style when in conflict):\n${customInstructions.trim()}`
       : "",
