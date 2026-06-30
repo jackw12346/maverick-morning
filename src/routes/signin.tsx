@@ -71,9 +71,7 @@ function AuthPage() {
       <div className="absolute inset-0 bg-[radial-gradient(800px_400px_at_50%_0%,oklch(0.55_0.18_38/0.15),transparent_60%)]" />
       <div className="relative w-full max-w-sm rounded-xl border border-border/60 bg-card/70 p-7 backdrop-blur">
         <div className="mb-7 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            <span className="font-display text-lg font-bold">M</span>
-          </div>
+          <MaverickLogo className="h-10 w-10" />
           <div>
             <div className="font-display text-lg font-semibold leading-none">
               Maverick
