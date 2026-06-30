@@ -587,11 +587,19 @@ export async function collectTailoredNews(
       }
     }
 
-    // Fallback: raw headline list.
+    // Fallback: raw headline list with sources.
     const flat = groups
-      .map((g) => `${g.topic}: ${g.headlines.slice(0, 2).join("; ")}`)
+      .map(
+        (g) =>
+          `${g.topic}: ` +
+          g.headlines
+            .slice(0, 2)
+            .map((h) => `${h.headline} (${h.source})`)
+            .join("; "),
+      )
       .join(". ");
     return { id: "news", title: "News", content: flat + "." };
+
   } catch (err) {
     console.error("[news]", err);
     return { id: "news", title: "News", content: "News feed unavailable." };
