@@ -51,9 +51,7 @@ function AuthenticatedLayout() {
   const navContent = (
     <>
       <div className="flex items-center gap-3 px-2 pb-4">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground">
-          <span className="font-display text-base font-bold">M</span>
-        </div>
+        <MaverickLogo />
         <div>
           <div className="font-display text-base font-semibold tracking-tight">
             Maverick
