@@ -141,6 +141,33 @@ function SettingsPage() {
                 </label>
               );
             })}
+            {data?.include_weather ? (
+              <TextSettingInput
+                label="Weather location"
+                hint="City or 'City, State'. Example: Austin, TX or Brooklyn, NY."
+                placeholder="Austin, TX"
+                initial={data.weather_location ?? ""}
+                onSave={(v) => mut.mutate({ weather_location: v })}
+              />
+            ) : null}
+            {data?.include_traffic ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <TextSettingInput
+                  label="Commute origin"
+                  hint="Home address or area."
+                  placeholder="123 Main St, Austin, TX"
+                  initial={data.traffic_origin ?? ""}
+                  onSave={(v) => mut.mutate({ traffic_origin: v })}
+                />
+                <TextSettingInput
+                  label="Commute destination"
+                  hint="Office or first stop."
+                  placeholder="500 Congress Ave, Austin, TX"
+                  initial={data.traffic_destination ?? ""}
+                  onSave={(v) => mut.mutate({ traffic_destination: v })}
+                />
+              </div>
+            ) : null}
             {data?.include_roca_news ? <NewsTopicsInput initial={data.news_topics ?? ""} onSave={(v) => mut.mutate({ news_topics: v })} /> : null}
           </div>
         )}
