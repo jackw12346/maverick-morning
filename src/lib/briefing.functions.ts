@@ -446,7 +446,6 @@ export const generateMorningBriefing = createServerFn({ method: "POST" })
     );
 
 
-    const apiKey = process.env.LOVABLE_API_KEY;
     let text: string;
     let modelUsed = "fallback";
     if (apiKey) {
