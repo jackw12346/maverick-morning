@@ -18,12 +18,12 @@ export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
 });
 
-const nav = [
+const nav: { to: "/" | "/settings" | "/integrations" | "/logs"; label: string; icon: typeof LayoutDashboard; end?: boolean }[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/settings", label: "Configuration", icon: SlidersHorizontal },
   { to: "/integrations", label: "Integrations", icon: Cable },
   { to: "/logs", label: "Logs", icon: ListOrdered },
-] as const;
+];
 
 function AuthenticatedLayout() {
   const { user } = Route.useRouteContext();
