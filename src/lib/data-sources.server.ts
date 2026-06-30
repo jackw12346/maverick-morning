@@ -10,9 +10,59 @@ export async function collectCalendar(userId: string): Promise<Section | null> {
     provider: "google_calendar",
   });
   if (!token) return null;
+
+  // Use the user's timezone to compute "today" instead of server UTC.
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("timezone")
+    .eq("id", userId)
+    .maybeSingle();
+  const tz = profile?.timezone || "UTC";
+
+  // Compute start-of-day in the user's tz, then end = +24h.
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "00";
+  // Local wall clock in tz
+  const y = get("year"), m = get("month"), d = get("day");
+  const h = parseInt(get("hour"), 10);
+  const mi = parseInt(get("minute"), 10);
+  const s = parseInt(get("second"), 10);
+  // Offset between tz wall clock and UTC, in ms
+  const offsetMs =
+    Date.UTC(parseInt(y), parseInt(m) - 1, parseInt(d), h, mi, s) - now.getTime();
+  const start = new Date(Date.UTC(parseInt(y), parseInt(m) - 1, parseInt(d)) - offsetMs);
+  const end = new Date(start.getTime() + 48 * 60 * 60 * 1000);
+
+  // Fetch all calendars and pull events from each (not just "primary").
+  const listRes = await fetch(
+    "https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=reader",
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!listRes.ok) {
+    console.error("[calendar list]", listRes.status, await listRes.text().catch(() => ""));
+    return {
+      id: "calendar",
+      title: "Calendar",
+      content: "Calendar fetch failed — try reconnecting Google Calendar.",
+    };
+  }
+  const listJson = (await listRes.json()) as {
+    items?: Array<{ id: string; selected?: boolean; primary?: boolean }>;
+  };
+  const calendars = (listJson.items ?? []).filter(
+    (c) => c.selected !== false,
+  );
+
   const params = new URLSearchParams({
     timeMin: start.toISOString(),
     timeMax: end.toISOString(),
@@ -20,10 +70,20 @@ export async function collectCalendar(userId: string): Promise<Section | null> {
     orderBy: "startTime",
     maxResults: "10",
   });
-  const res = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
-    { headers: { Authorization: `Bearer ${token}` } },
+
+  const results = await Promise.all(
+    calendars.map(async (c) => {
+      const r = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(c.id)}/events?${params}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!r.ok) return [] as any[];
+      const j = (await r.json()) as { items?: any[] };
+      return j.items ?? [];
+    }),
   );
+  const allItems = results.flat();
+
   if (!res.ok) {
     console.error("[calendar]", res.status, await res.text().catch(() => ""));
     return {
