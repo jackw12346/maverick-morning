@@ -127,6 +127,19 @@ function SettingsPage() {
         )}
       </HudCard>
 
+      <HudCard
+        eyebrow="AI refinement"
+        title="Custom instructions"
+        actions={<Sparkles className="h-4 w-4 text-hud" />}
+      >
+        {data && (
+          <CustomInstructionsInput
+            initial={data.custom_instructions ?? ""}
+            onSave={(v) => mut.mutate({ custom_instructions: v })}
+          />
+        )}
+      </HudCard>
+
       <HudCard eyebrow="Audio synthesis" title="Text-to-speech">
         {data && (
           <div className="space-y-4">
