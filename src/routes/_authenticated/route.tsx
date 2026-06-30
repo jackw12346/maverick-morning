@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
+import { AccountDialog } from "@/components/AccountDialog";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
