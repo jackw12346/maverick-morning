@@ -679,27 +679,44 @@ function ShortcutGuide({ url, token }: { url: string; token: string }) {
                 <div className="rounded-md border border-border/60 bg-background/60 p-2.5">
                   <div className="text-[12px] font-semibold text-foreground">Request Body → JSON</div>
                   <p className="mt-1 text-[11px]">
-                    Set <em>Request Body</em> to <strong>JSON</strong> (not Form, not File). Shortcuts opens a dictionary builder — each row has a <strong>Key</strong>, a <strong>type picker</strong> (Text · Number · Array · Dictionary · Boolean), and a value field. Build it like this:
+                    Set <em>Request Body</em> to <strong>JSON</strong>. Tap <strong>Add new field</strong> — each row has a <strong>Key</strong> input, a small <strong>type picker</strong> on the right (Text · Number · Array · Dictionary · Boolean), and a value input that changes with the type. Add these two top-level fields:
                   </p>
-                  <ul className="mt-2 space-y-1.5 text-[11px]">
-                    <li>
-                      <span className="font-mono">token</span> · <span className="rounded bg-secondary/60 px-1 text-[10px]">Text</span> · paste your token
-                    </li>
-                    <li>
-                      <span className="font-mono">devices</span> · <span className="rounded bg-secondary/60 px-1 text-[10px]">Array</span> → tap the array, <strong>Add new item</strong> → set the item type to <span className="rounded bg-secondary/60 px-1 text-[10px]">Dictionary</span>, then inside it:
-                      <ul className="mt-1 ml-3 space-y-1">
-                        <li><span className="font-mono">name</span> · <span className="rounded bg-secondary/60 px-1 text-[10px]">Text</span> · <span className="font-mono">iPhone</span></li>
-                        <li><span className="font-mono">level</span> · <span className="rounded bg-secondary/60 px-1 text-[10px]">Number</span> · tap the value field, then the <strong>Battery Level</strong> magic variable from step 2</li>
-                        <li><span className="font-mono">charging</span> · <span className="rounded bg-secondary/60 px-1 text-[10px]">Boolean</span> · toggle <strong>off</strong> (false)</li>
+
+                  <div className="mt-2 space-y-2 text-[11px]">
+                    <div className="rounded border border-border/60 bg-background/70 p-2">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded bg-secondary/60 px-1 text-[10px]">Key</span>
+                        <span className="font-mono">token</span>
+                        <span className="ml-auto rounded bg-secondary/60 px-1 text-[10px]">type: Text</span>
+                      </div>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="rounded bg-secondary/60 px-1 text-[10px]">Text</span>
+                        <span className="font-mono break-all">{token}</span>
+                      </div>
+                    </div>
+
+                    <div className="rounded border border-border/60 bg-background/70 p-2">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded bg-secondary/60 px-1 text-[10px]">Key</span>
+                        <span className="font-mono">devices</span>
+                        <span className="ml-auto rounded bg-secondary/60 px-1 text-[10px]">type: Array</span>
+                      </div>
+                      <p className="mt-1 text-muted-foreground">Tap the array row → <strong>Add new item</strong> → set the item's type to <strong>Dictionary</strong>. Inside that dictionary, add three fields the same way:</p>
+                      <ul className="mt-1.5 ml-2 space-y-1">
+                        <li className="flex items-center gap-2"><span className="rounded bg-secondary/60 px-1 text-[10px]">Key</span><span className="font-mono">name</span> · <span className="rounded bg-secondary/60 px-1 text-[10px]">Text</span> · <span className="font-mono">iPhone</span></li>
+                        <li className="flex items-center gap-2"><span className="rounded bg-secondary/60 px-1 text-[10px]">Key</span><span className="font-mono">level</span> · <span className="rounded bg-secondary/60 px-1 text-[10px]">Number</span> · tap the value, then insert the <strong>Battery Level</strong> magic variable</li>
+                        <li className="flex items-center gap-2"><span className="rounded bg-secondary/60 px-1 text-[10px]">Key</span><span className="font-mono">charging</span> · <span className="rounded bg-secondary/60 px-1 text-[10px]">Boolean</span> · toggle <strong>off</strong></li>
                       </ul>
-                    </li>
-                  </ul>
+                    </div>
+                  </div>
+
                   <p className="mt-2 text-[11px] text-muted-foreground">
-                    The reference JSON below is what the dictionary should equate to — <code>[Battery Level]</code> is the magic variable, not literal text.
+                    The JSON below is what your fields equate to — useful as a sanity check, not something to paste anywhere.
                   </p>
                 </div>
-                <CopyRow label="Body" value={jsonBody} />
+                <CopyRow label="Reference JSON" value={jsonBody} />
               </Step>
+
 
 
               <Step n={4} title="Run once to test">
