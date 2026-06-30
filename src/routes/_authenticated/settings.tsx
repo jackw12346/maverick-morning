@@ -59,9 +59,16 @@ function SettingsPage() {
     queryKey: ["settings"],
     queryFn: () => getSettings(),
   });
+  type SettingsPatch = Partial<{
+    include_calendar: boolean;
+    include_whoop: boolean;
+    include_batteries: boolean;
+    include_roca_news: boolean;
+    text_to_speech_enabled: boolean;
+    voice: (typeof voices)[number];
+  }>;
   const mut = useMutation({
-    mutationFn: (input: Parameters<typeof updateSettings>[0]["data"]) =>
-      updateSettings({ data: input }),
+    mutationFn: (input: SettingsPatch) => updateSettings({ data: input }),
     onMutate: async (input) => {
       await qc.cancelQueries({ queryKey: ["settings"] });
       const prev = qc.getQueryData(["settings"]);
