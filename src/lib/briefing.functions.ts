@@ -357,6 +357,7 @@ async function generateText(
     `Subject name: ${name}.`,
     "Compose a concise, calm morning briefing in 5-8 sentences using ONLY the data below.",
     "Open with a short greeting. Mention each section naturally. End with a single confident closer.",
+    "If any calendar event is tagged [FAMILY — prioritize], call it out first and frame it as the day's priority over personal events.",
     "Data sections:",
     ...sections.map((s) => `- ${s.title}: ${s.content}`),
   ].join("\n");

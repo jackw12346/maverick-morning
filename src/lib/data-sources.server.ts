@@ -33,21 +33,24 @@ export async function collectCalendar(userId: string): Promise<Section | null> {
     };
   }
   const listJson = (await listRes.json()) as {
-    items?: Array<{ id: string; selected?: boolean; primary?: boolean; timeZone?: string }>;
+    items?: Array<{
+      id: string;
+      summary?: string;
+      summaryOverride?: string;
+      selected?: boolean;
+      primary?: boolean;
+      timeZone?: string;
+    }>;
   };
   const calendars = (listJson.items ?? []).filter(
     (c) => c.selected !== false,
   );
 
   const primaryCalendar = calendars.find((c) => c.primary) ?? calendars[0];
-  // The profile timezone starts as UTC by default, which caused local Google Calendar
-  // events to be filtered against the wrong day. Prefer Google's primary calendar tz.
   const tz = primaryCalendar?.timeZone || profile?.timezone || "UTC";
   const now = new Date();
   const todayKey = dateKeyInTimeZone(now, tz);
 
-  // Query a deliberately wide window, then filter by the calendar-local date key.
-  // This avoids UTC boundary misses and handles all-day events correctly.
   const start = new Date(now.getTime() - 36 * 60 * 60 * 1000);
   const end = new Date(now.getTime() + 84 * 60 * 60 * 1000);
 
@@ -59,6 +62,11 @@ export async function collectCalendar(userId: string): Promise<Section | null> {
     maxResults: "50",
   });
 
+  const isFamilyCalendar = (c: { summary?: string; summaryOverride?: string }) => {
+    const name = `${c.summaryOverride ?? ""} ${c.summary ?? ""}`.toLowerCase();
+    return /\bfamily\b|\bfam\b/.test(name);
+  };
+
   const results = await Promise.all(
     calendars.map(async (c) => {
       const r = await fetch(
@@ -67,12 +75,13 @@ export async function collectCalendar(userId: string): Promise<Section | null> {
       );
       if (!r.ok) return [] as any[];
       const j = (await r.json()) as { items?: any[] };
-      return j.items ?? [];
+      const family = isFamilyCalendar(c);
+      const calName = c.summaryOverride ?? c.summary ?? "";
+      return (j.items ?? []).map((e) => ({ ...e, __family: family, __calName: calName }));
     }),
   );
   const allItems = results.flat();
 
-  // Dedupe and sort by start time, filter to events on the calendar-local "today".
   const seen = new Set<string>();
   const events = allItems
     .filter((e: any) => {
@@ -85,6 +94,8 @@ export async function collectCalendar(userId: string): Promise<Section | null> {
       return dateKeyInTimeZone(new Date(e.start.dateTime), tz) === todayKey;
     })
     .sort((a: any, b: any) => {
+      // Family events first, then chronological.
+      if (!!b.__family !== !!a.__family) return b.__family ? 1 : -1;
       const at = new Date(a.start?.dateTime ?? a.start?.date ?? 0).getTime();
       const bt = new Date(b.start?.dateTime ?? b.start?.date ?? 0).getTime();
       return at - bt;
@@ -105,14 +116,20 @@ export async function collectCalendar(userId: string): Promise<Section | null> {
           timeZone: tz,
         })
       : "All day";
-    return `${when} ${e.summary}`;
+    const tag = e.__family ? " [FAMILY — prioritize]" : "";
+    return `${when} ${e.summary}${tag}`;
   });
+  const familyCount = events.filter((e: any) => e.__family).length;
+  const preamble = familyCount > 0
+    ? `${familyCount} family event${familyCount === 1 ? "" : "s"} take priority. `
+    : "";
   return {
     id: "calendar",
     title: "Calendar",
-    content: `${events.length} event${events.length === 1 ? "" : "s"} today: ${lines.join("; ")}.`,
+    content: `${preamble}${events.length} event${events.length === 1 ? "" : "s"} today: ${lines.join("; ")}.`,
   };
 }
+
 
 function dateKeyInTimeZone(date: Date, timeZone: string) {
   const parts = new Intl.DateTimeFormat("en-US", {
