@@ -272,23 +272,42 @@ export async function collectCalendar(userId: string): Promise<Section | null> {
   const allItems = results.flat();
 
   const seen = new Set<string>();
-  const events = allItems
-    .filter((e: any) => {
-      if (!e?.summary || e.status === "cancelled") return false;
-      const key = `${e.__calendarId}-${e.id}-${e.start?.dateTime ?? e.start?.date}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      if (e.start?.date) return e.start.date === todayKey;
-      if (!e.start?.dateTime) return false;
-      return dateKeyInTimeZone(new Date(e.start.dateTime), tz) === todayKey;
-    })
-    .sort((a: any, b: any) => {
-      // Family events first, then chronological.
-      if (!!b.__family !== !!a.__family) return b.__family ? 1 : -1;
-      const at = new Date(a.start?.dateTime ?? a.start?.date ?? 0).getTime();
-      const bt = new Date(b.start?.dateTime ?? b.start?.date ?? 0).getTime();
-      return at - bt;
-    });
+  const filtered = allItems.filter((e: any) => {
+    if (!e?.summary || e.status === "cancelled") return false;
+    const key = `${e.__calendarId}-${e.id}-${e.start?.dateTime ?? e.start?.date}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    if (e.start?.date) return e.start.date === todayKey;
+    if (!e.start?.dateTime) return false;
+    return dateKeyInTimeZone(new Date(e.start.dateTime), tz) === todayKey;
+  });
+
+  const getRange = (e: any): [number, number] | null => {
+    const s = e.start?.dateTime ?? e.start?.date;
+    const en = e.end?.dateTime ?? e.end?.date ?? s;
+    if (!s) return null;
+    return [new Date(s).getTime(), new Date(en).getTime()];
+  };
+  const personalRanges = filtered
+    .filter((e: any) => !e.__family)
+    .map(getRange)
+    .filter((r): r is [number, number] => !!r);
+
+  // If a family event overlaps any personal event, drop the family event — personal takes priority.
+  const deconflicted = filtered.filter((e: any) => {
+    if (!e.__family) return true;
+    const r = getRange(e);
+    if (!r) return true;
+    return !personalRanges.some(([ps, pe]) => r[0] < pe && r[1] > ps);
+  });
+
+  const events = deconflicted.sort((a: any, b: any) => {
+    if (!!b.__family !== !!a.__family) return b.__family ? 1 : -1;
+    const at = new Date(a.start?.dateTime ?? a.start?.date ?? 0).getTime();
+    const bt = new Date(b.start?.dateTime ?? b.start?.date ?? 0).getTime();
+    return at - bt;
+  });
+
 
   if (events.length === 0) {
     return {
