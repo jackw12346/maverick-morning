@@ -107,6 +107,8 @@ export function AlarmClock() {
   );
   const [now, setNow] = useState(() => Date.now());
   const [ringing, setRinging] = useState(false);
+  const [alarmNeedsTap, setAlarmNeedsTap] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
 
   const preGeneratedFor = useRef<number | null>(null);
   const rangFor = useRef<number | null>(null);
@@ -120,6 +122,7 @@ export function AlarmClock() {
 
   // Wake Lock to reduce throttling while armed
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const titleRef = useRef(typeof document === "undefined" ? "Maverick" : document.title);
 
   const generate = useMutation({
     mutationFn: () => generateMorningBriefing(),
@@ -139,34 +142,46 @@ export function AlarmClock() {
     return () => window.clearInterval(id);
   }, []);
 
+  const playAlarmTone = useCallback(async () => {
+    const el = beepAudioRef.current;
+    if (!el) {
+      setAlarmNeedsTap(true);
+      return false;
+    }
+    try {
+      el.loop = true;
+      el.volume = 1;
+      el.currentTime = 0;
+      await el.play();
+      setAlarmNeedsTap(false);
+      return true;
+    } catch (err) {
+      console.warn("[alarm] audio.play() blocked", err);
+      setAlarmNeedsTap(true);
+      return false;
+    }
+  }, []);
+
   const startRinging = useCallback(() => {
     setRinging(true);
+    setAlarmNeedsTap(false);
 
     // Try the primed <audio> element first — works after page-level gesture,
     // even when tab is backgrounded.
-    const el = beepAudioRef.current;
-    if (el) {
-      try {
-        el.loop = true;
-        el.volume = 1;
-        el.currentTime = 0;
-        const p = el.play();
-        if (p && typeof p.catch === "function") {
-          p.catch((err) => console.warn("[alarm] audio.play() rejected", err));
-        }
-      } catch (e) {
-        console.warn("[alarm] audio.play() threw", e);
-      }
-    }
+    void playAlarmTone();
 
     // Best-effort notification so a backgrounded tab still alerts the user
     try {
       if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("Maverick — wake up", {
+        const notification = new Notification("Maverick — wake up", {
           body: "Your morning briefing is ready. Tap the tab to stop the alarm.",
           tag: "maverick-alarm",
           requireInteraction: true,
         });
+        notification.onclick = () => {
+          window.focus();
+          void playAlarmTone();
+        };
       }
     } catch {
       /* ignore */
@@ -178,7 +193,44 @@ export function AlarmClock() {
     } catch {
       /* ignore */
     }
+    try {
+      const nav = navigator as Navigator & {
+        setAppBadge?: (contents?: number) => Promise<void>;
+      };
+      void nav.setAppBadge?.(1);
+    } catch {
+      /* ignore */
+    }
+  }, [playAlarmTone]);
+
+  useEffect(() => {
+    const standaloneQuery = window.matchMedia("(display-mode: standalone)");
+    const update = () => {
+      setIsStandalone(
+        standaloneQuery.matches ||
+          ("standalone" in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone)),
+      );
+    };
+    update();
+    standaloneQuery.addEventListener("change", update);
+    return () => standaloneQuery.removeEventListener("change", update);
   }, []);
+
+  useEffect(() => {
+    if (!ringing) {
+      document.title = titleRef.current;
+      return;
+    }
+    let on = false;
+    const id = window.setInterval(() => {
+      on = !on;
+      document.title = on ? "⏰ Maverick alarm" : titleRef.current;
+    }, 900);
+    return () => {
+      window.clearInterval(id);
+      document.title = titleRef.current;
+    };
+  }, [ringing]);
 
   // Scheduling effect (polling) — fires pre-gen + ringing as time crosses thresholds
   useEffect(() => {
@@ -230,6 +282,10 @@ export function AlarmClock() {
   useEffect(() => {
     const onVis = () => {
       if (document.visibilityState !== "visible") return;
+      if (ringing) {
+        void playAlarmTone();
+        return;
+      }
       if (!state.enabled || ringing) return;
       const target = nextOccurrence(state.time).getTime();
       // nextOccurrence always returns a future time, so if we just woke up past
@@ -251,7 +307,7 @@ export function AlarmClock() {
       document.removeEventListener("visibilitychange", onVis);
       window.removeEventListener("focus", onVis);
     };
-  }, [state.enabled, state.time, ringing, generate, startRinging]);
+  }, [state.enabled, state.time, ringing, generate, startRinging, playAlarmTone]);
 
   async function stopRinging() {
     setRinging(false);
@@ -266,6 +322,12 @@ export function AlarmClock() {
     }
     try {
       navigator.vibrate?.(0);
+    } catch {
+      /* ignore */
+    }
+    try {
+      const nav = navigator as Navigator & { clearAppBadge?: () => Promise<void> };
+      void nav.clearAppBadge?.();
     } catch {
       /* ignore */
     }
@@ -447,6 +509,11 @@ export function AlarmClock() {
           you stop the alarm. Keep this tab open — allow notifications when prompted so a
           backgrounded tab can still alert you.
         </p>
+        {!isStandalone && (
+          <p className="mt-2 text-xs text-primary">
+            Mobile fallback active: add Maverick to your home screen for the best notification behavior.
+          </p>
+        )}
       </div>
 
       {ringing && (
@@ -462,11 +529,22 @@ export function AlarmClock() {
             <p className="mt-3 text-sm text-muted-foreground">
               {generate.isPending
                 ? "Your briefing is still compiling — it'll play as soon as you stop."
-                : "Stop the alarm to hear your morning briefing."}
+                : alarmNeedsTap
+                  ? "Mobile blocked background audio. Tap below to sound the alarm, or stop it to play the briefing."
+                  : "Stop the alarm to hear your morning briefing."}
             </p>
+            {alarmNeedsTap && (
+              <Button
+                variant="secondary"
+                className="mt-5 w-full"
+                onClick={() => void playAlarmTone()}
+              >
+                <BellRing className="mr-2 h-4 w-4" /> Play alarm sound
+              </Button>
+            )}
             <Button
               size="lg"
-              className="mt-6 w-full"
+              className={alarmNeedsTap ? "mt-3 w-full" : "mt-6 w-full"}
               onClick={() => void stopRinging()}
             >
               <Power className="mr-2 h-5 w-5" /> Stop & play briefing
