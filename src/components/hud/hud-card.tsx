@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import type { HTMLAttributes, ReactNode } from "react";
 
-interface HudCardProps extends HTMLAttributes<HTMLDivElement> {
+interface HudCardProps extends Omit<HTMLAttributes<HTMLDivElement>, "title"> {
   title?: ReactNode;
   eyebrow?: ReactNode;
   actions?: ReactNode;
