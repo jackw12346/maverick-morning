@@ -11,12 +11,12 @@ import { Label } from "@/components/ui/label";
 
 const search = z.object({ redirect: z.string().optional() });
 
-export const Route = createFileRoute("/auth")({
+export const Route = createFileRoute("/signin")({
   ssr: false,
   validateSearch: (s) => search.parse(s),
   beforeLoad: async ({ search }) => {
     const { data } = await supabase.auth.getUser();
-    if (data.user) throw redirect({ to: search.redirect ?? "/" });
+    if (data.user) throw redirect({ to: search.redirect ?? "/dashboard" });
   },
   component: AuthPage,
 });
@@ -45,7 +45,7 @@ function AuthPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       }
-      nav({ to: redirectTo ?? "/" });
+      nav({ to: redirectTo ?? "/dashboard" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Authentication failed");
     } finally {
@@ -53,16 +53,16 @@ function AuthPage() {
     }
   };
 
-  const google = async () => {
-    const result = await lovable.auth.signInWithOAuth("google", {
+  const oauth = async (provider: "google" | "apple") => {
+    const result = await lovable.auth.signInWithOAuth(provider, {
       redirect_uri: window.location.origin,
     });
     if (result.error) {
-      toast.error(result.error.message ?? "Google sign-in failed");
+      toast.error(result.error.message ?? `${provider} sign-in failed`);
       return;
     }
     if (result.redirected) return;
-    nav({ to: redirectTo ?? "/" });
+    nav({ to: redirectTo ?? "/dashboard" });
   };
 
 
@@ -123,9 +123,14 @@ function AuthPage() {
           <div className="h-px flex-1 bg-border" />
         </div>
 
-        <Button type="button" variant="secondary" onClick={google} className="w-full">
-          Continue with Google
-        </Button>
+        <div className="space-y-2">
+          <Button type="button" variant="secondary" onClick={() => oauth("google")} className="w-full">
+            Continue with Google
+          </Button>
+          <Button type="button" variant="outline" onClick={() => oauth("apple")} className="w-full bg-black text-white hover:bg-black/90 border-black">
+             Continue with Apple
+          </Button>
+        </div>
 
         <button
           type="button"

@@ -27,7 +27,7 @@ function PrivacyPage() {
             <span className="font-display text-lg">Maverick</span>
           </Link>
           <Link
-            to="/auth"
+            to="/signin"
             className="text-sm text-muted-foreground hover:text-foreground"
           >
             Sign in

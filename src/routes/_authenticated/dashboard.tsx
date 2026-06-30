@@ -24,7 +24,7 @@ import {
   listWebhooks,
 } from "@/lib/briefing.functions";
 
-export const Route = createFileRoute("/_authenticated/")({
+export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
 });
 
