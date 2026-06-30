@@ -480,7 +480,7 @@ export const generateMorningBriefing = createServerFn({ method: "POST" })
     let modelUsed = "fallback";
     if (apiKey) {
       try {
-        const out = await generateText(apiKey, name, sections);
+        const out = await generateText(apiKey, name, sections, settings?.custom_instructions ?? "");
         text = out.text || fallbackBriefing(name, sections);
         modelUsed = out.model;
       } catch (err) {
