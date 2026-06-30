@@ -47,9 +47,7 @@ function Landing() {
       {/* Nav */}
       <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 md:px-6">
         <Link to="/" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            <span className="font-display text-base font-bold">M</span>
-          </div>
+          <MaverickLogo />
           <span className="font-display text-lg font-semibold tracking-tight">Maverick</span>
         </Link>
         <nav className="flex items-center gap-2 text-sm">
