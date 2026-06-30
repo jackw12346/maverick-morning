@@ -1,15 +1,35 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
+const unwrapShortcutValue = (value: unknown) => {
+  if (Array.isArray(value) && value.length === 1) return value[0];
+  return value;
+};
+
+const ShortcutString = z.preprocess(
+  unwrapShortcutValue,
+  z.string().trim().min(1).max(60),
+);
+
+const ShortcutNumber = z.preprocess(
+  unwrapShortcutValue,
+  z.coerce.number().int().min(0).max(100),
+);
+
+const ShortcutBoolean = z
+  .preprocess(
+    unwrapShortcutValue,
+    z.union([z.boolean(), z.enum(["true", "false", "1", "0"])]),
+  )
+  .optional()
+  .transform((v) =>
+    typeof v === "string" ? v === "true" || v === "1" : v,
+  );
+
 const Device = z.object({
-  name: z.string().trim().min(1).max(60),
-  level: z.coerce.number().int().min(0).max(100),
-  charging: z
-    .union([z.boolean(), z.enum(["true", "false", "1", "0"])])
-    .optional()
-    .transform((v) =>
-      typeof v === "string" ? v === "true" || v === "1" : v,
-    ),
+  name: ShortcutString,
+  level: ShortcutNumber,
+  charging: ShortcutBoolean,
 });
 
 // Accept either:
@@ -20,14 +40,9 @@ const Body = z
   .object({
     token: z.string().trim().min(8).max(100),
     devices: z.array(Device).min(1).max(20).optional(),
-    name: z.string().trim().min(1).max(60).optional(),
-    level: z.coerce.number().int().min(0).max(100).optional(),
-    charging: z
-      .union([z.boolean(), z.enum(["true", "false", "1", "0"])])
-      .optional()
-      .transform((v) =>
-        typeof v === "string" ? v === "true" || v === "1" : v,
-      ),
+    name: ShortcutString.optional(),
+    level: ShortcutNumber.optional(),
+    charging: ShortcutBoolean,
   })
   .transform((b) => {
     if (b.devices && b.devices.length) return { token: b.token, devices: b.devices };
