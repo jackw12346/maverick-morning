@@ -5,6 +5,8 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
+import { isNative } from "@/lib/native";
+import { nativeSignInWithApple, nativeSignInWithGoogle } from "@/lib/native-auth";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,16 +58,27 @@ function AuthPage() {
   };
 
   const oauth = async (provider: "google" | "apple") => {
-    const result = await lovable.auth.signInWithOAuth(provider, {
-      redirect_uri: window.location.origin,
-    });
-    if (result.error) {
-      toast.error(result.error.message ?? `${provider} sign-in failed`);
-      return;
+    try {
+      if (isNative()) {
+        if (provider === "apple") await nativeSignInWithApple();
+        else await nativeSignInWithGoogle();
+        nav({ to: redirectTo ?? "/dashboard" });
+        return;
+      }
+      const result = await lovable.auth.signInWithOAuth(provider, {
+        redirect_uri: window.location.origin,
+      });
+      if (result.error) {
+        toast.error(result.error.message ?? `${provider} sign-in failed`);
+        return;
+      }
+      if (result.redirected) return;
+      nav({ to: redirectTo ?? "/dashboard" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : `${provider} sign-in failed`);
     }
-    if (result.redirected) return;
-    nav({ to: redirectTo ?? "/dashboard" });
   };
+
 
 
   return (
