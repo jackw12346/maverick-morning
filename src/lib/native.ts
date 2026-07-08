@@ -43,7 +43,10 @@ function nextOccurrence(hhmm: string): Date {
  */
 export async function scheduleDailyAlarm(hhmm: string): Promise<void> {
   if (!isNative()) return;
-  if (!(await ensureNotificationPermission())) return;
+  if (!(await ensureNotificationPermission())) {
+    console.warn("[alarm] notification permission not granted");
+    return;
+  }
 
   const alarmAt = nextOccurrence(hhmm);
   const pregenAt = new Date(alarmAt.getTime() - 5 * 60_000);
@@ -52,27 +55,48 @@ export async function scheduleDailyAlarm(hhmm: string): Promise<void> {
     notifications: [{ id: ALARM_NOTIFICATION_ID }, { id: PREGEN_NOTIFICATION_ID }],
   }).catch(() => {});
 
-  await LocalNotifications.schedule({
-    notifications: [
-      {
-        id: PREGEN_NOTIFICATION_ID,
-        title: "Maverick is preparing your briefing",
-        body: "Generating today's audio…",
-        schedule: { at: pregenAt, allowWhileIdle: true, every: "day" },
-        sound: undefined,
-        silent: true,
-        extra: { kind: "pregen" },
-      },
-      {
-        id: ALARM_NOTIFICATION_ID,
-        title: "Maverick — wake up",
-        body: "Tap to play your morning briefing.",
-        schedule: { at: alarmAt, allowWhileIdle: true, every: "day" },
-        sound: "alarm.wav",
-        extra: { kind: "alarm" },
-      },
-    ],
-  });
+  // Schedule the silent pre-gen notification independently — a failure here
+  // must never block the actual alarm from being registered.
+  try {
+    await LocalNotifications.schedule({
+      notifications: [
+        {
+          id: PREGEN_NOTIFICATION_ID,
+          title: "Maverick is preparing your briefing",
+          body: "Generating today's audio…",
+          schedule: { at: pregenAt, allowWhileIdle: true, every: "day" },
+          silent: true,
+          extra: { kind: "pregen" },
+        },
+      ],
+    });
+  } catch (err) {
+    console.warn("[alarm] pregen schedule failed", err);
+  }
+
+  // Try the alarm with the custom loud sound. If iOS rejects it (missing
+  // alarm.wav in the bundle, unsupported format, etc.) fall back to the
+  // default notification sound so the alarm STILL fires — this is the
+  // difference between "no notification at all" and "quiet default ping".
+  const baseAlarm = {
+    id: ALARM_NOTIFICATION_ID,
+    title: "Maverick — wake up",
+    body: "Tap to play your morning briefing.",
+    schedule: { at: alarmAt, allowWhileIdle: true, every: "day" as const },
+    extra: { kind: "alarm" },
+  };
+  try {
+    await LocalNotifications.schedule({
+      notifications: [{ ...baseAlarm, sound: "alarm.wav" }],
+    });
+  } catch (err) {
+    console.warn("[alarm] custom sound failed, retrying with default", err);
+    try {
+      await LocalNotifications.schedule({ notifications: [baseAlarm] });
+    } catch (err2) {
+      console.error("[alarm] alarm schedule failed", err2);
+    }
+  }
 }
 
 export async function cancelDailyAlarm(): Promise<void> {

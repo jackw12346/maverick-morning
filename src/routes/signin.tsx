@@ -4,7 +4,6 @@ import { useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,19 +54,6 @@ function AuthPage() {
     }
   };
 
-  const oauth = async (provider: "google" | "apple") => {
-    const result = await lovable.auth.signInWithOAuth(provider, {
-      redirect_uri: window.location.origin,
-    });
-    if (result.error) {
-      toast.error(result.error.message ?? `${provider} sign-in failed`);
-      return;
-    }
-    if (result.redirected) return;
-    nav({ to: redirectTo ?? "/dashboard" });
-  };
-
-
   return (
     <div className="relative flex min-h-screen items-center justify-center px-4">
       <div className="absolute inset-0 bg-[radial-gradient(800px_400px_at_50%_0%,oklch(0.55_0.18_38/0.15),transparent_60%)]" />
@@ -115,22 +101,6 @@ function AuthPage() {
           </Button>
         </form>
 
-        <div className="my-4 flex items-center gap-3">
-          <div className="h-px flex-1 bg-border" />
-          <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-            or
-          </span>
-          <div className="h-px flex-1 bg-border" />
-        </div>
-
-        <div className="space-y-2">
-          <Button type="button" variant="secondary" onClick={() => oauth("google")} className="w-full">
-            Continue with Google
-          </Button>
-          <Button type="button" variant="outline" onClick={() => oauth("apple")} className="w-full bg-black text-white hover:bg-black/90 border-black">
-             Continue with Apple
-          </Button>
-        </div>
 
         <button
           type="button"
