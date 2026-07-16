@@ -555,48 +555,66 @@ export async function collectBatteries(userId: string): Promise<Section | null> 
   return { id: "batteries", title: "Devices", content: line };
 }
 
-// Fetch headlines + source from Google News RSS for a given query.
-// Google News titles are formatted "Headline - SourceName"; <source> tag also present.
+// Fetch headlines + source via Firecrawl search (Google News RSS blocks Cloudflare Worker IPs).
 type NewsItem = { headline: string; source: string };
 
-async function fetchGoogleNews(query: string, limit = 5): Promise<{ items: NewsItem[]; error?: string }> {
-  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
+async function fetchNewsViaFirecrawl(query: string, limit = 5): Promise<{ items: NewsItem[]; error?: string }> {
+  const fcKey = process.env.FIRECRAWL_API_KEY;
+  if (!fcKey) return { items: [], error: "FIRECRAWL_API_KEY missing" };
   try {
-    const res = await fetch(url, {
+    const res = await fetch("https://api.firecrawl.dev/v2/search", {
+      method: "POST",
       headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; MaverickBriefing/1.0; +https://maverick-morning.lovable.app)",
-        "Accept": "application/rss+xml, application/xml, text/xml, */*",
+        Authorization: `Bearer ${fcKey}`,
+        "Content-Type": "application/json",
       },
-      signal: AbortSignal.timeout(10000),
+      body: JSON.stringify({
+        query: `${query} latest news`,
+        limit,
+        tbs: "qdr:d", // past 24 hours
+        lang: "en",
+        country: "us",
+      }),
+      signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) {
-      console.error("[news rss]", query, res.status);
-      return { items: [], error: `Google News RSS ${res.status} for "${query}"` };
+      const body = await res.text().catch(() => "");
+      console.error("[news firecrawl]", query, res.status, body.slice(0, 200));
+      return { items: [], error: `Firecrawl search ${res.status} for "${query}": ${body.slice(0, 120)}` };
     }
-    const xml = await res.text();
+    const j = (await res.json()) as {
+      data?: {
+        web?: Array<{ title?: string; description?: string; url?: string }>;
+        news?: Array<{ title?: string; snippet?: string; url?: string }>;
+      } | Array<{ title?: string; description?: string; url?: string }>;
+    };
+    const rawResults = Array.isArray(j.data)
+      ? j.data
+      : [...(j.data?.news ?? []), ...(j.data?.web ?? [])];
     const items: NewsItem[] = [];
-    for (const m of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
-      const block = m[1];
-      const titleMatch = block.match(/<title>([\s\S]*?)<\/title>/);
-      if (!titleMatch) continue;
-      const rawTitle = decodeEntities(titleMatch[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim());
-      if (rawTitle.length < 8) continue;
-      const sourceTag = block.match(/<source[^>]*>([\s\S]*?)<\/source>/);
-      let source = sourceTag ? decodeEntities(sourceTag[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim()) : "";
-      let headline = rawTitle;
-      const split = rawTitle.match(/^(.*)\s-\s([^-]+)$/);
-      if (split) {
-        headline = split[1].trim();
-        if (!source) source = split[2].trim();
+    for (const r of rawResults) {
+      const title = (r as { title?: string }).title?.trim();
+      const url = (r as { url?: string }).url ?? "";
+      if (!title || title.length < 8) continue;
+      let source = "source unknown";
+      try {
+        const host = new URL(url).hostname.replace(/^www\./, "");
+        // Prettify e.g. "reuters.com" -> "Reuters", "nytimes.com" -> "Nytimes"
+        source = host.split(".")[0].replace(/^\w/, (c) => c.toUpperCase());
+      } catch {
+        /* ignore */
       }
-      items.push({ headline, source: source || "source unknown" });
+      items.push({ headline: title, source });
       if (items.length >= limit) break;
+    }
+    if (items.length === 0) {
+      return { items: [], error: `Firecrawl returned no results for "${query}"` };
     }
     return { items };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error("[news rss]", query, msg);
-    return { items: [], error: `Google News RSS "${query}": ${msg}` };
+    console.error("[news firecrawl]", query, msg);
+    return { items: [], error: `Firecrawl "${query}": ${msg}` };
   }
 }
 
