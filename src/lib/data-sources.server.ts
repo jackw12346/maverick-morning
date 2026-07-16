@@ -17,15 +17,22 @@ async function geocode(location: string): Promise<{ lat: number; lon: number; na
   );
   for (const q of variants) {
     const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=en&format=json`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) continue;
-    const j = (await res.json()) as {
-      results?: Array<{ latitude: number; longitude: number; name: string; admin1?: string; country_code?: string; timezone?: string }>;
-    };
-    const r = j.results?.[0];
-    if (!r) continue;
-    const label = [r.name, r.admin1, r.country_code].filter(Boolean).join(", ");
-    return { lat: r.latitude, lon: r.longitude, name: label, tz: r.timezone ?? "auto" };
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
+      if (!res.ok) {
+        console.error("[geocode]", q, res.status);
+        continue;
+      }
+      const j = (await res.json()) as {
+        results?: Array<{ latitude: number; longitude: number; name: string; admin1?: string; country_code?: string; timezone?: string }>;
+      };
+      const r = j.results?.[0];
+      if (!r) continue;
+      const label = [r.name, r.admin1, r.country_code].filter(Boolean).join(", ");
+      return { lat: r.latitude, lon: r.longitude, name: label, tz: r.timezone ?? "auto" };
+    } catch (e) {
+      console.error("[geocode]", q, e instanceof Error ? e.message : e);
+    }
   }
   return null;
 }
@@ -52,36 +59,41 @@ export async function collectWeather(location: string): Promise<Section | null> 
       content: "No weather location set — add one in Configuration.",
     };
   }
-  const geo = await geocode(loc);
-  if (!geo) {
-    return { id: "weather", title: "Weather", content: `Couldn't find "${loc}" — try a more specific city.` };
-  }
-  const params = new URLSearchParams({
-    latitude: String(geo.lat),
-    longitude: String(geo.lon),
-    current: "temperature_2m,apparent_temperature,weather_code,wind_speed_10m",
-    daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset",
-    temperature_unit: "fahrenheit",
-    wind_speed_unit: "mph",
-    precipitation_unit: "inch",
-    timezone: geo.tz,
-    forecast_days: "1",
-  });
-  const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`, {
-    signal: AbortSignal.timeout(8000),
-  });
-  if (!res.ok) return { id: "weather", title: "Weather", content: "Weather feed unavailable." };
-  const j = (await res.json()) as {
-    current?: { temperature_2m: number; apparent_temperature: number; weather_code: number; wind_speed_10m: number };
-    daily?: {
-      weather_code: number[]; temperature_2m_max: number[]; temperature_2m_min: number[];
-      precipitation_probability_max: number[]; precipitation_sum: number[];
-      sunrise: string[]; sunset: string[];
+  try {
+    const geo = await geocode(loc);
+    if (!geo) {
+      return { id: "weather", title: "Weather", content: `Couldn't find "${loc}" — try a more specific city.` };
+    }
+    const params = new URLSearchParams({
+      latitude: String(geo.lat),
+      longitude: String(geo.lon),
+      current: "temperature_2m,apparent_temperature,weather_code,wind_speed_10m",
+      daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset",
+      temperature_unit: "fahrenheit",
+      wind_speed_unit: "mph",
+      precipitation_unit: "inch",
+      timezone: geo.tz,
+      forecast_days: "1",
+    });
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`, {
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!res.ok) {
+      console.error("[weather]", res.status, await res.text().catch(() => ""));
+      return { id: "weather", title: "Weather", content: "Weather feed unavailable." };
+    }
+    const j = (await res.json()) as {
+      current?: { temperature_2m: number; apparent_temperature: number; weather_code: number; wind_speed_10m: number };
+      daily?: {
+        weather_code: number[]; temperature_2m_max: number[]; temperature_2m_min: number[];
+        precipitation_probability_max: number[]; precipitation_sum: number[];
+        sunrise: string[]; sunset: string[];
+      };
     };
-  };
-  const c = j.current;
-  const d = j.daily;
-  if (!c || !d) return { id: "weather", title: "Weather", content: "Weather feed unavailable." };
+    const c = j.current;
+    const d = j.daily;
+    if (!c || !d) return { id: "weather", title: "Weather", content: "Weather feed unavailable." };
+
   const cond = WX[c.weather_code] ?? "conditions";
   const dayCond = WX[d.weather_code[0]] ?? cond;
   // Open-Meteo returns sunset as a naive local-time ISO string like "2024-06-30T20:34"
@@ -101,14 +113,18 @@ export async function collectWeather(location: string): Promise<Section | null> 
   const precipNote = d.precipitation_probability_max[0] >= 30
     ? ` ${d.precipitation_probability_max[0]}% chance of precipitation (${d.precipitation_sum[0].toFixed(2)}").`
     : "";
-  return {
-    id: "weather",
-    title: "Weather",
-    content:
-      `${geo.name}: currently ${Math.round(c.temperature_2m)}°F, ${cond}, feels like ${Math.round(c.apparent_temperature)}°F, wind ${Math.round(c.wind_speed_10m)} mph. ` +
-      `Today ${dayCond}, high ${Math.round(d.temperature_2m_max[0])}°F / low ${Math.round(d.temperature_2m_min[0])}°F.${precipNote}` +
-      (sunset ? ` Sunset ${sunset}.` : ""),
-  };
+    return {
+      id: "weather",
+      title: "Weather",
+      content:
+        `${geo.name}: currently ${Math.round(c.temperature_2m)}°F, ${cond}, feels like ${Math.round(c.apparent_temperature)}°F, wind ${Math.round(c.wind_speed_10m)} mph. ` +
+        `Today ${dayCond}, high ${Math.round(d.temperature_2m_max[0])}°F / low ${Math.round(d.temperature_2m_min[0])}°F.${precipNote}` +
+        (sunset ? ` Sunset ${sunset}.` : ""),
+    };
+  } catch (e) {
+    console.error("[weather]", e instanceof Error ? e.message : e);
+    return { id: "weather", title: "Weather", content: "Weather feed unavailable." };
+  }
 }
 
 // ---------- Traffic (Google Maps via Firecrawl scrape — live traffic, personal use) ----------
@@ -490,32 +506,43 @@ type NewsItem = { headline: string; source: string };
 
 async function fetchGoogleNews(query: string, limit = 5): Promise<NewsItem[]> {
   const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
-  const res = await fetch(url, {
-    headers: { "User-Agent": "Maverick-Briefing/1.0" },
-    signal: AbortSignal.timeout(5000),
-  }).catch(() => null);
-  if (!res || !res.ok) return [];
-  const xml = await res.text();
-  const items: NewsItem[] = [];
-  for (const m of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
-    const block = m[1];
-    const titleMatch = block.match(/<title>([\s\S]*?)<\/title>/);
-    if (!titleMatch) continue;
-    const rawTitle = decodeEntities(titleMatch[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim());
-    if (rawTitle.length < 8) continue;
-    const sourceTag = block.match(/<source[^>]*>([\s\S]*?)<\/source>/);
-    let source = sourceTag ? decodeEntities(sourceTag[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim()) : "";
-    let headline = rawTitle;
-    // Strip trailing " - Source" suffix if present.
-    const split = rawTitle.match(/^(.*)\s-\s([^-]+)$/);
-    if (split) {
-      headline = split[1].trim();
-      if (!source) source = split[2].trim();
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; MaverickBriefing/1.0; +https://maverick-morning.lovable.app)",
+        "Accept": "application/rss+xml, application/xml, text/xml, */*",
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) {
+      console.error("[news rss]", query, res.status);
+      return [];
     }
-    items.push({ headline, source: source || "source unknown" });
-    if (items.length >= limit) break;
+    const xml = await res.text();
+    const items: NewsItem[] = [];
+    for (const m of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
+      const block = m[1];
+      const titleMatch = block.match(/<title>([\s\S]*?)<\/title>/);
+      if (!titleMatch) continue;
+      const rawTitle = decodeEntities(titleMatch[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim());
+      if (rawTitle.length < 8) continue;
+      const sourceTag = block.match(/<source[^>]*>([\s\S]*?)<\/source>/);
+      let source = sourceTag ? decodeEntities(sourceTag[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim()) : "";
+      let headline = rawTitle;
+      // Strip trailing " - Source" suffix if present.
+      const split = rawTitle.match(/^(.*)\s-\s([^-]+)$/);
+      if (split) {
+        headline = split[1].trim();
+        if (!source) source = split[2].trim();
+      }
+      items.push({ headline, source: source || "source unknown" });
+      if (items.length >= limit) break;
+    }
+    return items;
+  } catch (e) {
+    console.error("[news rss]", query, e instanceof Error ? e.message : e);
+    return [];
   }
-  return items;
 }
 
 export async function collectTailoredNews(
