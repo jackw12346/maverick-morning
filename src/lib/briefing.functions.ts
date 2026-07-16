@@ -443,6 +443,7 @@ async function synthesizeSpeech(
       voice,
       response_format: "mp3",
     }),
+    signal: AbortSignal.timeout(20000),
   });
   if (!res.ok) {
     const t = await res.text().catch(() => "");
