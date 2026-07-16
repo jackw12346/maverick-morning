@@ -506,32 +506,43 @@ type NewsItem = { headline: string; source: string };
 
 async function fetchGoogleNews(query: string, limit = 5): Promise<NewsItem[]> {
   const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
-  const res = await fetch(url, {
-    headers: { "User-Agent": "Maverick-Briefing/1.0" },
-    signal: AbortSignal.timeout(5000),
-  }).catch(() => null);
-  if (!res || !res.ok) return [];
-  const xml = await res.text();
-  const items: NewsItem[] = [];
-  for (const m of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
-    const block = m[1];
-    const titleMatch = block.match(/<title>([\s\S]*?)<\/title>/);
-    if (!titleMatch) continue;
-    const rawTitle = decodeEntities(titleMatch[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim());
-    if (rawTitle.length < 8) continue;
-    const sourceTag = block.match(/<source[^>]*>([\s\S]*?)<\/source>/);
-    let source = sourceTag ? decodeEntities(sourceTag[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim()) : "";
-    let headline = rawTitle;
-    // Strip trailing " - Source" suffix if present.
-    const split = rawTitle.match(/^(.*)\s-\s([^-]+)$/);
-    if (split) {
-      headline = split[1].trim();
-      if (!source) source = split[2].trim();
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; MaverickBriefing/1.0; +https://maverick-morning.lovable.app)",
+        "Accept": "application/rss+xml, application/xml, text/xml, */*",
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) {
+      console.error("[news rss]", query, res.status);
+      return [];
     }
-    items.push({ headline, source: source || "source unknown" });
-    if (items.length >= limit) break;
+    const xml = await res.text();
+    const items: NewsItem[] = [];
+    for (const m of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
+      const block = m[1];
+      const titleMatch = block.match(/<title>([\s\S]*?)<\/title>/);
+      if (!titleMatch) continue;
+      const rawTitle = decodeEntities(titleMatch[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim());
+      if (rawTitle.length < 8) continue;
+      const sourceTag = block.match(/<source[^>]*>([\s\S]*?)<\/source>/);
+      let source = sourceTag ? decodeEntities(sourceTag[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim()) : "";
+      let headline = rawTitle;
+      // Strip trailing " - Source" suffix if present.
+      const split = rawTitle.match(/^(.*)\s-\s([^-]+)$/);
+      if (split) {
+        headline = split[1].trim();
+        if (!source) source = split[2].trim();
+      }
+      items.push({ headline, source: source || "source unknown" });
+      if (items.length >= limit) break;
+    }
+    return items;
+  } catch (e) {
+    console.error("[news rss]", query, e instanceof Error ? e.message : e);
+    return [];
   }
-  return items;
 }
 
 export async function collectTailoredNews(
