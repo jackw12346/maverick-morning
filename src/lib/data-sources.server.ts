@@ -123,8 +123,9 @@ export async function collectWeather(location: string): Promise<Section | null> 
         (sunset ? ` Sunset ${sunset}.` : ""),
     };
   } catch (e) {
-    console.error("[weather]", e instanceof Error ? e.message : e);
-    return { id: "weather", title: "Weather", content: "Weather feed unavailable." };
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[weather]", msg);
+    return { id: "weather", title: "Weather", content: "Weather feed unavailable.", error: msg };
   }
 }
 
