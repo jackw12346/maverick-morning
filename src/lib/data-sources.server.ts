@@ -50,6 +50,45 @@ const WX: Record<number, string> = {
   95: "thunderstorm", 96: "thunderstorm w/ hail", 99: "severe thunderstorm",
 };
 
+async function fetchWttrIn(loc: string): Promise<Section | null> {
+  const res = await fetch(`https://wttr.in/${encodeURIComponent(loc)}?format=j1`, {
+    headers: { "User-Agent": "Mozilla/5.0 MaverickBriefing" },
+    signal: AbortSignal.timeout(12000),
+  });
+  if (!res.ok) throw new Error(`wttr.in ${res.status}`);
+  const j = (await res.json()) as {
+    current_condition?: Array<{ temp_F: string; FeelsLikeF: string; weatherDesc: Array<{ value: string }>; windspeedMiles: string; humidity: string }>;
+    weather?: Array<{
+      maxtempF: string;
+      mintempF: string;
+      astronomy?: Array<{ sunset: string }>;
+      hourly?: Array<{ chanceofrain: string; weatherDesc: Array<{ value: string }> }>;
+    }>;
+    nearest_area?: Array<{ areaName: Array<{ value: string }>; region: Array<{ value: string }>; country: Array<{ value: string }> }>;
+  };
+  const cur = j.current_condition?.[0];
+  const today = j.weather?.[0];
+  if (!cur || !today) throw new Error("wttr.in: empty payload");
+  const area = j.nearest_area?.[0];
+  const name = area
+    ? [area.areaName?.[0]?.value, area.region?.[0]?.value, area.country?.[0]?.value].filter(Boolean).join(", ")
+    : loc;
+  const cond = cur.weatherDesc?.[0]?.value ?? "conditions";
+  const midday = today.hourly?.[Math.min(4, (today.hourly?.length ?? 1) - 1)];
+  const dayCond = midday?.weatherDesc?.[0]?.value ?? cond;
+  const rainChance = Math.max(...(today.hourly?.map((h) => parseInt(h.chanceofrain, 10) || 0) ?? [0]));
+  const sunset = today.astronomy?.[0]?.sunset ?? "";
+  const precipNote = rainChance >= 30 ? ` ${rainChance}% chance of precipitation.` : "";
+  return {
+    id: "weather",
+    title: "Weather",
+    content:
+      `${name}: currently ${cur.temp_F}°F, ${cond.toLowerCase()}, feels like ${cur.FeelsLikeF}°F, wind ${cur.windspeedMiles} mph, humidity ${cur.humidity}%. ` +
+      `Today ${dayCond.toLowerCase()}, high ${today.maxtempF}°F / low ${today.mintempF}°F.${precipNote}` +
+      (sunset ? ` Sunset ${sunset}.` : ""),
+  };
+}
+
 export async function collectWeather(location: string): Promise<Section | null> {
   const loc = location.trim();
   if (!loc) {
@@ -59,74 +98,88 @@ export async function collectWeather(location: string): Promise<Section | null> 
       content: "No weather location set — add one in Configuration.",
     };
   }
+  const errors: string[] = [];
+
+  // Provider 1: Open-Meteo (free, no key).
   try {
     const geo = await geocode(loc);
     if (!geo) {
-      return { id: "weather", title: "Weather", content: `Couldn't find "${loc}" — try a more specific city.` };
+      errors.push(`geocoding: couldn't find "${loc}"`);
+    } else {
+      const params = new URLSearchParams({
+        latitude: String(geo.lat),
+        longitude: String(geo.lon),
+        current: "temperature_2m,apparent_temperature,weather_code,wind_speed_10m",
+        daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset",
+        temperature_unit: "fahrenheit",
+        wind_speed_unit: "mph",
+        precipitation_unit: "inch",
+        timezone: geo.tz,
+        forecast_days: "1",
+      });
+      const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`, {
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        errors.push(`open-meteo ${res.status}: ${body.slice(0, 120)}`);
+        console.error("[weather open-meteo]", res.status, body);
+      } else {
+        const j = (await res.json()) as {
+          current?: { temperature_2m: number; apparent_temperature: number; weather_code: number; wind_speed_10m: number };
+          daily?: {
+            weather_code: number[]; temperature_2m_max: number[]; temperature_2m_min: number[];
+            precipitation_probability_max: number[]; precipitation_sum: number[];
+            sunrise: string[]; sunset: string[];
+          };
+        };
+        const c = j.current;
+        const d = j.daily;
+        if (c && d) {
+          const cond = WX[c.weather_code] ?? "conditions";
+          const dayCond = WX[d.weather_code[0]] ?? cond;
+          const sunsetRaw = d.sunset[0] ?? "";
+          const sunsetMatch = sunsetRaw.match(/T(\d{2}):(\d{2})/);
+          let sunset = "";
+          if (sunsetMatch) {
+            const h = parseInt(sunsetMatch[1], 10);
+            const m = sunsetMatch[2];
+            const period = h >= 12 ? "PM" : "AM";
+            const h12 = h % 12 === 0 ? 12 : h % 12;
+            sunset = `${h12}:${m} ${period}`;
+          }
+          const precipNote = d.precipitation_probability_max[0] >= 30
+            ? ` ${d.precipitation_probability_max[0]}% chance of precipitation (${d.precipitation_sum[0].toFixed(2)}").`
+            : "";
+          return {
+            id: "weather",
+            title: "Weather",
+            content:
+              `${geo.name}: currently ${Math.round(c.temperature_2m)}°F, ${cond}, feels like ${Math.round(c.apparent_temperature)}°F, wind ${Math.round(c.wind_speed_10m)} mph. ` +
+              `Today ${dayCond}, high ${Math.round(d.temperature_2m_max[0])}°F / low ${Math.round(d.temperature_2m_min[0])}°F.${precipNote}` +
+              (sunset ? ` Sunset ${sunset}.` : ""),
+          };
+        }
+        errors.push("open-meteo: empty payload");
+      }
     }
-    const params = new URLSearchParams({
-      latitude: String(geo.lat),
-      longitude: String(geo.lon),
-      current: "temperature_2m,apparent_temperature,weather_code,wind_speed_10m",
-      daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset",
-      temperature_unit: "fahrenheit",
-      wind_speed_unit: "mph",
-      precipitation_unit: "inch",
-      timezone: geo.tz,
-      forecast_days: "1",
-    });
-    const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`, {
-      signal: AbortSignal.timeout(12000),
-    });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      console.error("[weather]", res.status, body);
-      return { id: "weather", title: "Weather", content: "Weather feed unavailable.", error: `open-meteo ${res.status}: ${body.slice(0, 200)}` };
-    }
-    const j = (await res.json()) as {
-      current?: { temperature_2m: number; apparent_temperature: number; weather_code: number; wind_speed_10m: number };
-      daily?: {
-        weather_code: number[]; temperature_2m_max: number[]; temperature_2m_min: number[];
-        precipitation_probability_max: number[]; precipitation_sum: number[];
-        sunrise: string[]; sunset: string[];
-      };
-    };
-    const c = j.current;
-    const d = j.daily;
-    if (!c || !d) return { id: "weather", title: "Weather", content: "Weather feed unavailable." };
-
-  const cond = WX[c.weather_code] ?? "conditions";
-  const dayCond = WX[d.weather_code[0]] ?? cond;
-  // Open-Meteo returns sunset as a naive local-time ISO string like "2024-06-30T20:34"
-  // (already in the requested timezone). Parse the hour/minute directly — don't feed it
-  // to `new Date()` which would treat it as UTC and shift the time.
-  const sunsetRaw = d.sunset[0] ?? "";
-  const sunsetMatch = sunsetRaw.match(/T(\d{2}):(\d{2})/);
-  let sunset = "";
-  if (sunsetMatch) {
-    const h = parseInt(sunsetMatch[1], 10);
-    const m = sunsetMatch[2];
-    const period = h >= 12 ? "PM" : "AM";
-    const h12 = h % 12 === 0 ? 12 : h % 12;
-    sunset = `${h12}:${m} ${period}`;
-  }
-
-  const precipNote = d.precipitation_probability_max[0] >= 30
-    ? ` ${d.precipitation_probability_max[0]}% chance of precipitation (${d.precipitation_sum[0].toFixed(2)}").`
-    : "";
-    return {
-      id: "weather",
-      title: "Weather",
-      content:
-        `${geo.name}: currently ${Math.round(c.temperature_2m)}°F, ${cond}, feels like ${Math.round(c.apparent_temperature)}°F, wind ${Math.round(c.wind_speed_10m)} mph. ` +
-        `Today ${dayCond}, high ${Math.round(d.temperature_2m_max[0])}°F / low ${Math.round(d.temperature_2m_min[0])}°F.${precipNote}` +
-        (sunset ? ` Sunset ${sunset}.` : ""),
-    };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error("[weather]", msg);
-    return { id: "weather", title: "Weather", content: "Weather feed unavailable.", error: msg };
+    errors.push(`open-meteo: ${msg}`);
+    console.error("[weather open-meteo]", msg);
   }
+
+  // Provider 2 (fallback): wttr.in — no key, different infra, works when Open-Meteo hits its daily cap.
+  try {
+    const section = await fetchWttrIn(loc);
+    if (section) return section;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    errors.push(`wttr.in: ${msg}`);
+    console.error("[weather wttr.in]", msg);
+  }
+
+  return { id: "weather", title: "Weather", content: "Weather feed unavailable.", error: errors.join(" | ") };
 }
 
 // ---------- Traffic (Google Maps via Firecrawl scrape — live traffic, personal use) ----------
