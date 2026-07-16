@@ -25,7 +25,6 @@ export const Route = createFileRoute("/signin")({
 function AuthPage() {
   const nav = useNavigate();
   const { redirect: redirectTo } = Route.useSearch();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
