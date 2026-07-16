@@ -696,7 +696,7 @@ export async function collectTailoredNews(
           `${g.topic}: ` +
           g.headlines
             .slice(0, 2)
-            .map((h) => `${h.headline} (${h.source})`)
+            .map((h: NewsItem) => `${h.headline} (${h.source})`)
             .join("; "),
       )
       .join(". ");
