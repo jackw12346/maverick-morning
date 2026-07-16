@@ -560,16 +560,18 @@ export async function collectTailoredNews(
   try {
     const all = await Promise.all(
       queries.slice(0, 3).map(async (q) => {
-        const heads = await fetchGoogleNews(q, 4).catch(() => [] as NewsItem[]);
-        return { topic: q, headlines: heads };
+        const r = await fetchGoogleNews(q, 4).catch((e) => ({ items: [] as NewsItem[], error: String(e) }));
+        return { topic: q, headlines: r.items, error: r.error };
       }),
     );
+    const errors = all.filter((g) => g.error).map((g) => g.error as string);
     const groups = all.filter((g) => g.headlines.length > 0);
     if (groups.length === 0) {
       return {
         id: "news",
         title: "News",
         content: "News feed unavailable this morning.",
+        error: errors.length > 0 ? errors.join(" | ") : "no headlines returned",
       };
     }
 
