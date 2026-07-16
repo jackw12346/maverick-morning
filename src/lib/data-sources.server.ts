@@ -59,36 +59,41 @@ export async function collectWeather(location: string): Promise<Section | null> 
       content: "No weather location set — add one in Configuration.",
     };
   }
-  const geo = await geocode(loc);
-  if (!geo) {
-    return { id: "weather", title: "Weather", content: `Couldn't find "${loc}" — try a more specific city.` };
-  }
-  const params = new URLSearchParams({
-    latitude: String(geo.lat),
-    longitude: String(geo.lon),
-    current: "temperature_2m,apparent_temperature,weather_code,wind_speed_10m",
-    daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset",
-    temperature_unit: "fahrenheit",
-    wind_speed_unit: "mph",
-    precipitation_unit: "inch",
-    timezone: geo.tz,
-    forecast_days: "1",
-  });
-  const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`, {
-    signal: AbortSignal.timeout(8000),
-  });
-  if (!res.ok) return { id: "weather", title: "Weather", content: "Weather feed unavailable." };
-  const j = (await res.json()) as {
-    current?: { temperature_2m: number; apparent_temperature: number; weather_code: number; wind_speed_10m: number };
-    daily?: {
-      weather_code: number[]; temperature_2m_max: number[]; temperature_2m_min: number[];
-      precipitation_probability_max: number[]; precipitation_sum: number[];
-      sunrise: string[]; sunset: string[];
+  try {
+    const geo = await geocode(loc);
+    if (!geo) {
+      return { id: "weather", title: "Weather", content: `Couldn't find "${loc}" — try a more specific city.` };
+    }
+    const params = new URLSearchParams({
+      latitude: String(geo.lat),
+      longitude: String(geo.lon),
+      current: "temperature_2m,apparent_temperature,weather_code,wind_speed_10m",
+      daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset",
+      temperature_unit: "fahrenheit",
+      wind_speed_unit: "mph",
+      precipitation_unit: "inch",
+      timezone: geo.tz,
+      forecast_days: "1",
+    });
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`, {
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!res.ok) {
+      console.error("[weather]", res.status, await res.text().catch(() => ""));
+      return { id: "weather", title: "Weather", content: "Weather feed unavailable." };
+    }
+    const j = (await res.json()) as {
+      current?: { temperature_2m: number; apparent_temperature: number; weather_code: number; wind_speed_10m: number };
+      daily?: {
+        weather_code: number[]; temperature_2m_max: number[]; temperature_2m_min: number[];
+        precipitation_probability_max: number[]; precipitation_sum: number[];
+        sunrise: string[]; sunset: string[];
+      };
     };
-  };
-  const c = j.current;
-  const d = j.daily;
-  if (!c || !d) return { id: "weather", title: "Weather", content: "Weather feed unavailable." };
+    const c = j.current;
+    const d = j.daily;
+    if (!c || !d) return { id: "weather", title: "Weather", content: "Weather feed unavailable." };
+
   const cond = WX[c.weather_code] ?? "conditions";
   const dayCond = WX[d.weather_code[0]] ?? cond;
   // Open-Meteo returns sunset as a naive local-time ISO string like "2024-06-30T20:34"
