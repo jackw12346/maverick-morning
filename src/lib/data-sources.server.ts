@@ -2,7 +2,7 @@
 import { getValidAccessToken } from "./oauth.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-export type Section = { id: string; title: string; content: string };
+export type Section = { id: string; title: string; content: string; error?: string };
 
 // ---------- Weather (Open-Meteo, no API key required) ----------
 
