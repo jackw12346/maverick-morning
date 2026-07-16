@@ -492,9 +492,9 @@ async function fetchGoogleNews(query: string, limit = 5): Promise<NewsItem[]> {
   const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
   const res = await fetch(url, {
     headers: { "User-Agent": "Maverick-Briefing/1.0" },
-    signal: AbortSignal.timeout(8000),
-  });
-  if (!res.ok) return [];
+    signal: AbortSignal.timeout(5000),
+  }).catch(() => null);
+  if (!res || !res.ok) return [];
   const xml = await res.text();
   const items: NewsItem[] = [];
   for (const m of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
