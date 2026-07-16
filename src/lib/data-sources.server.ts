@@ -113,14 +113,18 @@ export async function collectWeather(location: string): Promise<Section | null> 
   const precipNote = d.precipitation_probability_max[0] >= 30
     ? ` ${d.precipitation_probability_max[0]}% chance of precipitation (${d.precipitation_sum[0].toFixed(2)}").`
     : "";
-  return {
-    id: "weather",
-    title: "Weather",
-    content:
-      `${geo.name}: currently ${Math.round(c.temperature_2m)}°F, ${cond}, feels like ${Math.round(c.apparent_temperature)}°F, wind ${Math.round(c.wind_speed_10m)} mph. ` +
-      `Today ${dayCond}, high ${Math.round(d.temperature_2m_max[0])}°F / low ${Math.round(d.temperature_2m_min[0])}°F.${precipNote}` +
-      (sunset ? ` Sunset ${sunset}.` : ""),
-  };
+    return {
+      id: "weather",
+      title: "Weather",
+      content:
+        `${geo.name}: currently ${Math.round(c.temperature_2m)}°F, ${cond}, feels like ${Math.round(c.apparent_temperature)}°F, wind ${Math.round(c.wind_speed_10m)} mph. ` +
+        `Today ${dayCond}, high ${Math.round(d.temperature_2m_max[0])}°F / low ${Math.round(d.temperature_2m_min[0])}°F.${precipNote}` +
+        (sunset ? ` Sunset ${sunset}.` : ""),
+    };
+  } catch (e) {
+    console.error("[weather]", e instanceof Error ? e.message : e);
+    return { id: "weather", title: "Weather", content: "Weather feed unavailable." };
+  }
 }
 
 // ---------- Traffic (Google Maps via Firecrawl scrape — live traffic, personal use) ----------
