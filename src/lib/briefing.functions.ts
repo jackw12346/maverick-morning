@@ -369,7 +369,7 @@ export const deleteLog = createServerFn({ method: "POST" })
 
 // ---------- Generate ----------
 
-type Section = { id: string; title: string; content: string };
+type Section = { id: string; title: string; content: string; error?: string };
 
 function fallbackBriefing(name: string, sections: Section[]): string {
   const greeting = `Good morning, ${name}.`;
