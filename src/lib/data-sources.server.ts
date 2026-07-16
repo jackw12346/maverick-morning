@@ -655,7 +655,7 @@ export async function collectTailoredNews(
         ...groups.map(
           (g) =>
             `Topic "${g.topic}":\n` +
-            g.headlines.map((h) => `- ${h.headline} (${h.source})`).join("\n"),
+            g.headlines.map((h: NewsItem) => `- ${h.headline} (${h.source})`).join("\n"),
         ),
       ].join("\n\n");
 
