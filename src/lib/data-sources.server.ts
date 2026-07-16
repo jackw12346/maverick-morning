@@ -506,7 +506,7 @@ export async function collectBatteries(userId: string): Promise<Section | null> 
 // Google News titles are formatted "Headline - SourceName"; <source> tag also present.
 type NewsItem = { headline: string; source: string };
 
-async function fetchGoogleNews(query: string, limit = 5): Promise<NewsItem[]> {
+async function fetchGoogleNews(query: string, limit = 5): Promise<{ items: NewsItem[]; error?: string }> {
   const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
   try {
     const res = await fetch(url, {
@@ -518,7 +518,7 @@ async function fetchGoogleNews(query: string, limit = 5): Promise<NewsItem[]> {
     });
     if (!res.ok) {
       console.error("[news rss]", query, res.status);
-      return [];
+      return { items: [], error: `Google News RSS ${res.status} for "${query}"` };
     }
     const xml = await res.text();
     const items: NewsItem[] = [];
@@ -531,7 +531,6 @@ async function fetchGoogleNews(query: string, limit = 5): Promise<NewsItem[]> {
       const sourceTag = block.match(/<source[^>]*>([\s\S]*?)<\/source>/);
       let source = sourceTag ? decodeEntities(sourceTag[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim()) : "";
       let headline = rawTitle;
-      // Strip trailing " - Source" suffix if present.
       const split = rawTitle.match(/^(.*)\s-\s([^-]+)$/);
       if (split) {
         headline = split[1].trim();
@@ -540,10 +539,11 @@ async function fetchGoogleNews(query: string, limit = 5): Promise<NewsItem[]> {
       items.push({ headline, source: source || "source unknown" });
       if (items.length >= limit) break;
     }
-    return items;
+    return { items };
   } catch (e) {
-    console.error("[news rss]", query, e instanceof Error ? e.message : e);
-    return [];
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[news rss]", query, msg);
+    return { items: [], error: `Google News RSS "${query}": ${msg}` };
   }
 }
 
