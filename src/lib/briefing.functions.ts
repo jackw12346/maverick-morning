@@ -597,6 +597,7 @@ export const generateMorningBriefing = createServerFn({ method: "POST" })
       text,
       audio_url: signedAudio,
       created_at: log.created_at,
+      collector_errors: collectorErrors,
       webhooks_delivered: webhookResults.filter(
         (r) => r.status === "fulfilled" && (r.value as Response).ok,
       ).length,
