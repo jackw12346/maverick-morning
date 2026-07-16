@@ -412,6 +412,7 @@ async function generateText(
         { role: "user", content: prompt },
       ],
     }),
+    signal: AbortSignal.timeout(18000),
   });
   if (!res.ok) {
     const t = await res.text().catch(() => "");
