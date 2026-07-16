@@ -360,10 +360,15 @@ export function AlarmClock() {
 
   async function stopRinging() {
     setRinging(false);
+    // Reuse the already-unlocked beep audio element for briefing playback.
+    // iOS/Safari require playback to originate from a user-gesture-unlocked
+    // element; awaiting `getLatestLog()` breaks the gesture chain for a new
+    // Audio(), so we hand the same element a new `src` instead.
     const el = beepAudioRef.current;
     if (el) {
       try {
         el.pause();
+        el.loop = false;
         el.currentTime = 0;
       } catch {
         /* ignore */
@@ -396,10 +401,29 @@ export function AlarmClock() {
       }
       const latest = await getLatestLog();
       if (latest?.audio_url) {
-        const a = new Audio(latest.audio_url);
-        briefingAudioRef.current = a;
-        await a.play();
-        toast.success("Good morning. Playing your briefing.");
+        // Prefer the primed beep element (already unlocked). Fall back to a
+        // fresh Audio only if for some reason the ref is gone.
+        const playerEl = beepAudioRef.current;
+        if (playerEl) {
+          playerEl.loop = false;
+          playerEl.src = latest.audio_url;
+          briefingAudioRef.current = playerEl;
+          try {
+            await playerEl.play();
+            toast.success("Good morning. Playing your briefing.");
+          } catch (err) {
+            console.warn("[briefing] primed play blocked, retrying", err);
+            const a = new Audio(latest.audio_url);
+            briefingAudioRef.current = a;
+            await a.play();
+            toast.success("Good morning. Playing your briefing.");
+          }
+        } else {
+          const a = new Audio(latest.audio_url);
+          briefingAudioRef.current = a;
+          await a.play();
+          toast.success("Good morning. Playing your briefing.");
+        }
       } else {
         toast.message("Briefing ready — audio not available.");
       }
@@ -407,6 +431,7 @@ export function AlarmClock() {
       toast.error(e instanceof Error ? e.message : "Could not play briefing");
     }
   }
+
 
   useEffect(() => {
     return () => {
