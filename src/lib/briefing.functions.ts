@@ -412,6 +412,7 @@ async function generateText(
         { role: "user", content: prompt },
       ],
     }),
+    signal: AbortSignal.timeout(18000),
   });
   if (!res.ok) {
     const t = await res.text().catch(() => "");
@@ -442,6 +443,7 @@ async function synthesizeSpeech(
       voice,
       response_format: "mp3",
     }),
+    signal: AbortSignal.timeout(20000),
   });
   if (!res.ok) {
     const t = await res.text().catch(() => "");
