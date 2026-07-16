@@ -78,7 +78,7 @@ function AuthPage() {
             <Input
               id="password"
               type="password"
-              autoComplete={mode === "signup" ? "new-password" : "current-password"}
+              autoComplete="current-password"
               minLength={6}
               required
               value={password}
@@ -86,20 +86,9 @@ function AuthPage() {
             />
           </div>
           <Button type="submit" disabled={loading} className="w-full">
-            {loading ? "Signing in…" : mode === "signup" ? "Create account" : "Sign in"}
+            {loading ? "Signing in…" : "Sign in"}
           </Button>
         </form>
-
-
-        <button
-          type="button"
-          onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-          className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-foreground"
-        >
-          {mode === "signin"
-            ? "Don't have an account? Sign up →"
-            : "Already have an account? Sign in →"}
-        </button>
       </div>
     </div>
   );
