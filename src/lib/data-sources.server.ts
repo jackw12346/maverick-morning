@@ -79,8 +79,9 @@ export async function collectWeather(location: string): Promise<Section | null> 
       signal: AbortSignal.timeout(12000),
     });
     if (!res.ok) {
-      console.error("[weather]", res.status, await res.text().catch(() => ""));
-      return { id: "weather", title: "Weather", content: "Weather feed unavailable." };
+      const body = await res.text().catch(() => "");
+      console.error("[weather]", res.status, body);
+      return { id: "weather", title: "Weather", content: "Weather feed unavailable.", error: `open-meteo ${res.status}: ${body.slice(0, 200)}` };
     }
     const j = (await res.json()) as {
       current?: { temperature_2m: number; apparent_temperature: number; weather_code: number; wind_speed_10m: number };
