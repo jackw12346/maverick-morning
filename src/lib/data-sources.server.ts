@@ -632,8 +632,9 @@ export async function collectTailoredNews(
     return { id: "news", title: "News", content: flat + "." };
 
   } catch (err) {
-    console.error("[news]", err);
-    return { id: "news", title: "News", content: "News feed unavailable." };
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[news]", msg);
+    return { id: "news", title: "News", content: "News feed unavailable.", error: msg };
   }
 }
 
