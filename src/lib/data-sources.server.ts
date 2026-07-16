@@ -571,7 +571,7 @@ export async function collectTailoredNews(
               { role: "user", content: prompt },
             ],
           }),
-          signal: AbortSignal.timeout(15000),
+          signal: AbortSignal.timeout(10000),
         });
         if (res.ok) {
           const json = (await res.json()) as {
