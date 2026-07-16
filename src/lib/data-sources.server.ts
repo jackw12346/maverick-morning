@@ -17,15 +17,22 @@ async function geocode(location: string): Promise<{ lat: number; lon: number; na
   );
   for (const q of variants) {
     const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=en&format=json`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) continue;
-    const j = (await res.json()) as {
-      results?: Array<{ latitude: number; longitude: number; name: string; admin1?: string; country_code?: string; timezone?: string }>;
-    };
-    const r = j.results?.[0];
-    if (!r) continue;
-    const label = [r.name, r.admin1, r.country_code].filter(Boolean).join(", ");
-    return { lat: r.latitude, lon: r.longitude, name: label, tz: r.timezone ?? "auto" };
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
+      if (!res.ok) {
+        console.error("[geocode]", q, res.status);
+        continue;
+      }
+      const j = (await res.json()) as {
+        results?: Array<{ latitude: number; longitude: number; name: string; admin1?: string; country_code?: string; timezone?: string }>;
+      };
+      const r = j.results?.[0];
+      if (!r) continue;
+      const label = [r.name, r.admin1, r.country_code].filter(Boolean).join(", ");
+      return { lat: r.latitude, lon: r.longitude, name: label, tz: r.timezone ?? "auto" };
+    } catch (e) {
+      console.error("[geocode]", q, e instanceof Error ? e.message : e);
+    }
   }
   return null;
 }
