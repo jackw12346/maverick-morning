@@ -2,7 +2,7 @@
 import { getValidAccessToken } from "./oauth.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-export type Section = { id: string; title: string; content: string };
+export type Section = { id: string; title: string; content: string; error?: string };
 
 // ---------- Weather (Open-Meteo, no API key required) ----------
 
@@ -79,8 +79,9 @@ export async function collectWeather(location: string): Promise<Section | null> 
       signal: AbortSignal.timeout(12000),
     });
     if (!res.ok) {
-      console.error("[weather]", res.status, await res.text().catch(() => ""));
-      return { id: "weather", title: "Weather", content: "Weather feed unavailable." };
+      const body = await res.text().catch(() => "");
+      console.error("[weather]", res.status, body);
+      return { id: "weather", title: "Weather", content: "Weather feed unavailable.", error: `open-meteo ${res.status}: ${body.slice(0, 200)}` };
     }
     const j = (await res.json()) as {
       current?: { temperature_2m: number; apparent_temperature: number; weather_code: number; wind_speed_10m: number };
@@ -122,8 +123,9 @@ export async function collectWeather(location: string): Promise<Section | null> 
         (sunset ? ` Sunset ${sunset}.` : ""),
     };
   } catch (e) {
-    console.error("[weather]", e instanceof Error ? e.message : e);
-    return { id: "weather", title: "Weather", content: "Weather feed unavailable." };
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[weather]", msg);
+    return { id: "weather", title: "Weather", content: "Weather feed unavailable.", error: msg };
   }
 }
 
@@ -504,7 +506,7 @@ export async function collectBatteries(userId: string): Promise<Section | null> 
 // Google News titles are formatted "Headline - SourceName"; <source> tag also present.
 type NewsItem = { headline: string; source: string };
 
-async function fetchGoogleNews(query: string, limit = 5): Promise<NewsItem[]> {
+async function fetchGoogleNews(query: string, limit = 5): Promise<{ items: NewsItem[]; error?: string }> {
   const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
   try {
     const res = await fetch(url, {
@@ -516,7 +518,7 @@ async function fetchGoogleNews(query: string, limit = 5): Promise<NewsItem[]> {
     });
     if (!res.ok) {
       console.error("[news rss]", query, res.status);
-      return [];
+      return { items: [], error: `Google News RSS ${res.status} for "${query}"` };
     }
     const xml = await res.text();
     const items: NewsItem[] = [];
@@ -529,7 +531,6 @@ async function fetchGoogleNews(query: string, limit = 5): Promise<NewsItem[]> {
       const sourceTag = block.match(/<source[^>]*>([\s\S]*?)<\/source>/);
       let source = sourceTag ? decodeEntities(sourceTag[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim()) : "";
       let headline = rawTitle;
-      // Strip trailing " - Source" suffix if present.
       const split = rawTitle.match(/^(.*)\s-\s([^-]+)$/);
       if (split) {
         headline = split[1].trim();
@@ -538,10 +539,11 @@ async function fetchGoogleNews(query: string, limit = 5): Promise<NewsItem[]> {
       items.push({ headline, source: source || "source unknown" });
       if (items.length >= limit) break;
     }
-    return items;
+    return { items };
   } catch (e) {
-    console.error("[news rss]", query, e instanceof Error ? e.message : e);
-    return [];
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[news rss]", query, msg);
+    return { items: [], error: `Google News RSS "${query}": ${msg}` };
   }
 }
 
@@ -558,16 +560,18 @@ export async function collectTailoredNews(
   try {
     const all = await Promise.all(
       queries.slice(0, 3).map(async (q) => {
-        const heads = await fetchGoogleNews(q, 4).catch(() => [] as NewsItem[]);
-        return { topic: q, headlines: heads };
+        const r = await fetchGoogleNews(q, 4).catch((e) => ({ items: [] as NewsItem[], error: String(e) }));
+        return { topic: q, headlines: r.items, error: r.error };
       }),
     );
+    const errors = all.filter((g) => g.error).map((g) => g.error as string);
     const groups = all.filter((g) => g.headlines.length > 0);
     if (groups.length === 0) {
       return {
         id: "news",
         title: "News",
         content: "News feed unavailable this morning.",
+        error: errors.length > 0 ? errors.join(" | ") : "no headlines returned",
       };
     }
 
@@ -628,8 +632,9 @@ export async function collectTailoredNews(
     return { id: "news", title: "News", content: flat + "." };
 
   } catch (err) {
-    console.error("[news]", err);
-    return { id: "news", title: "News", content: "News feed unavailable." };
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[news]", msg);
+    return { id: "news", title: "News", content: "News feed unavailable.", error: msg };
   }
 }
 
