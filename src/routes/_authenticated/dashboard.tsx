@@ -51,6 +51,12 @@ function Dashboard() {
       toast.success(
         `Briefing generated · ${res.webhooks_delivered}/${res.webhooks_total} webhook${res.webhooks_total === 1 ? "" : "s"} fired`,
       );
+      if (res.collector_errors && res.collector_errors.length > 0) {
+        for (const err of res.collector_errors) {
+          toast.warning(`${err.id}: ${err.error}`, { duration: 10000 });
+        }
+        console.warn("[briefing collector errors]", res.collector_errors);
+      }
       qc.invalidateQueries({ queryKey: ["latest-log"] });
       qc.invalidateQueries({ queryKey: ["logs"] });
     },
