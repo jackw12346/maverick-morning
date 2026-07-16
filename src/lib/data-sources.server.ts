@@ -631,7 +631,7 @@ export async function collectTailoredNews(
   try {
     const all = await Promise.all(
       queries.slice(0, 3).map(async (q) => {
-        const r = await fetchGoogleNews(q, 4).catch((e) => ({ items: [] as NewsItem[], error: String(e) }));
+        const r = await fetchNewsViaFirecrawl(q, 4).catch((e: unknown) => ({ items: [] as NewsItem[], error: String(e) }));
         return { topic: q, headlines: r.items, error: r.error };
       }),
     );
