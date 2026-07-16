@@ -369,7 +369,7 @@ export const deleteLog = createServerFn({ method: "POST" })
 
 // ---------- Generate ----------
 
-type Section = { id: string; title: string; content: string };
+type Section = { id: string; title: string; content: string; error?: string };
 
 function fallbackBriefing(name: string, sections: Section[]): string {
   const greeting = `Good morning, ${name}.`;
@@ -412,6 +412,7 @@ async function generateText(
         { role: "user", content: prompt },
       ],
     }),
+    signal: AbortSignal.timeout(18000),
   });
   if (!res.ok) {
     const t = await res.text().catch(() => "");
@@ -442,6 +443,7 @@ async function synthesizeSpeech(
       voice,
       response_format: "mp3",
     }),
+    signal: AbortSignal.timeout(20000),
   });
   if (!res.ok) {
     const t = await res.text().catch(() => "");
@@ -537,6 +539,10 @@ export const generateMorningBriefing = createServerFn({ method: "POST" })
       }
     }
 
+    const collectorErrors = sections
+      .filter((s) => s.error)
+      .map((s) => ({ id: s.id, error: s.error as string }));
+
     const { data: log, error: logErr } = await supabase
       .from("briefing_logs")
       .insert({
@@ -547,6 +553,7 @@ export const generateMorningBriefing = createServerFn({ method: "POST" })
           model: modelUsed,
           sections: sections.map((s) => s.id),
           had_tts: storagePath !== null,
+          collector_errors: collectorErrors,
         },
       })
       .select("id,created_at")
@@ -590,6 +597,7 @@ export const generateMorningBriefing = createServerFn({ method: "POST" })
       text,
       audio_url: signedAudio,
       created_at: log.created_at,
+      collector_errors: collectorErrors,
       webhooks_delivered: webhookResults.filter(
         (r) => r.status === "fulfilled" && (r.value as Response).ok,
       ).length,

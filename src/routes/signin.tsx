@@ -25,7 +25,6 @@ export const Route = createFileRoute("/signin")({
 function AuthPage() {
   const nav = useNavigate();
   const { redirect: redirectTo } = Route.useSearch();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,18 +33,8 @@ function AuthPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: `${window.location.origin}/` },
-        });
-        if (error) throw error;
-        toast.success("Account created. You're in.");
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
       nav({ to: redirectTo ?? "/dashboard" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Authentication failed");
@@ -89,7 +78,7 @@ function AuthPage() {
             <Input
               id="password"
               type="password"
-              autoComplete={mode === "signup" ? "new-password" : "current-password"}
+              autoComplete="current-password"
               minLength={6}
               required
               value={password}
@@ -97,20 +86,9 @@ function AuthPage() {
             />
           </div>
           <Button type="submit" disabled={loading} className="w-full">
-            {loading ? "Signing in…" : mode === "signup" ? "Create account" : "Sign in"}
+            {loading ? "Signing in…" : "Sign in"}
           </Button>
         </form>
-
-
-        <button
-          type="button"
-          onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-          className="mt-4 w-full text-center text-xs text-muted-foreground hover:text-foreground"
-        >
-          {mode === "signin"
-            ? "Don't have an account? Sign up →"
-            : "Already have an account? Sign in →"}
-        </button>
       </div>
     </div>
   );
