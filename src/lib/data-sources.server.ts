@@ -530,8 +530,8 @@ export async function collectTailoredNews(
   const queries = cleanedTopics.length > 0 ? cleanedTopics : ["top world news today"];
   try {
     const all = await Promise.all(
-      queries.slice(0, 5).map(async (q) => {
-        const heads = await fetchGoogleNews(q, 4);
+      queries.slice(0, 3).map(async (q) => {
+        const heads = await fetchGoogleNews(q, 4).catch(() => [] as NewsItem[]);
         return { topic: q, headlines: heads };
       }),
     );
