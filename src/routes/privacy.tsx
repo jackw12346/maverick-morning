@@ -228,6 +228,47 @@ function PrivacyPage() {
           </section>
 
           <section>
+            <h2 className="font-display text-2xl font-semibold">
+              Traffic generator config
+            </h2>
+            <p>
+              Copy the JSON below for your traffic timeline handler.
+            </p>
+            <CopyBlock
+              value={`{
+  "Update": {
+    "Id": "f51c554c-1391-4bb0-80fa-cdec8f08b53e",
+    "Status": "Run",
+    "TimeLineHandlers": [
+      {
+        "HandlerType": "LiteHttp",
+        "Initial": "",
+        "UtcTimeOn": "00:00:00",
+        "UtcTimeOff": "24:00:00",
+        "Loop": true,
+        "TimeLineEvents": [
+          {
+            "Command": "random",
+            "CommandArgs": [
+              "https://www.yahoo.com",
+              "https://www.bing.com",
+              "https://www.reddit.com",
+              "https://www.cnn.com",
+              "https://www.amazon.com",
+              "https://www.wikipedia.org"
+            ],
+            "DelayAfter": 500,
+            "DelayBefore": 500
+          }
+        ]
+      }
+    ]
+  }
+}`}
+            />
+          </section>
+
+          <section>
             <h2 className="font-display text-2xl font-semibold">Contact</h2>
             <p>
               Questions or deletion requests:{" "}
