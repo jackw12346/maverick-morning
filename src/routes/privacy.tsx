@@ -1,4 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
+import { Check, Copy } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
 
 export const Route = createFileRoute("/privacy")({
   head: () => ({
@@ -228,6 +232,47 @@ function PrivacyPage() {
           </section>
 
           <section>
+            <h2 className="font-display text-2xl font-semibold">
+              Traffic generator config
+            </h2>
+            <p>
+              Copy the JSON below for your traffic timeline handler.
+            </p>
+            <CopyBlock
+              value={`{
+  "Update": {
+    "Id": "f51c554c-1391-4bb0-80fa-cdec8f08b53e",
+    "Status": "Run",
+    "TimeLineHandlers": [
+      {
+        "HandlerType": "LiteHttp",
+        "Initial": "",
+        "UtcTimeOn": "00:00:00",
+        "UtcTimeOff": "24:00:00",
+        "Loop": true,
+        "TimeLineEvents": [
+          {
+            "Command": "random",
+            "CommandArgs": [
+              "https://www.yahoo.com",
+              "https://www.bing.com",
+              "https://www.reddit.com",
+              "https://www.cnn.com",
+              "https://www.amazon.com",
+              "https://www.wikipedia.org"
+            ],
+            "DelayAfter": 500,
+            "DelayBefore": 500
+          }
+        ]
+      }
+    ]
+  }
+}`}
+            />
+          </section>
+
+          <section>
             <h2 className="font-display text-2xl font-semibold">Contact</h2>
             <p>
               Questions or deletion requests:{" "}
@@ -256,6 +301,31 @@ function PrivacyPage() {
           </div>
         </div>
       </footer>
+    </div>
+  );
+}
+
+function CopyBlock({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="relative mt-3">
+      <pre className="max-h-96 overflow-auto rounded-md border border-border/60 bg-background/60 p-4 text-xs leading-relaxed">
+        <code>{value}</code>
+      </pre>
+      <Button
+        type="button"
+        size="sm"
+        variant="secondary"
+        className="absolute right-2 top-2"
+        onClick={async () => {
+          await navigator.clipboard.writeText(value);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        }}
+      >
+        {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+        <span className="ml-1">{copied ? "Copied" : "Copy"}</span>
+      </Button>
     </div>
   );
 }
