@@ -304,3 +304,28 @@ function PrivacyPage() {
     </div>
   );
 }
+
+function CopyBlock({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="relative mt-3">
+      <pre className="max-h-96 overflow-auto rounded-md border border-border/60 bg-background/60 p-4 text-xs leading-relaxed">
+        <code>{value}</code>
+      </pre>
+      <Button
+        type="button"
+        size="sm"
+        variant="secondary"
+        className="absolute right-2 top-2"
+        onClick={async () => {
+          await navigator.clipboard.writeText(value);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        }}
+      >
+        {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+        <span className="ml-1">{copied ? "Copied" : "Copy"}</span>
+      </Button>
+    </div>
+  );
+}
